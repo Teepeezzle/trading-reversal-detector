@@ -1,0 +1,37 @@
+# Trading Reversal Detector configuration
+
+account_balance: 10000
+risk_per_trade_pct: 2.0
+max_daily_loss_pct: 6.0
+max_concurrent_positions: 8
+max_positions_per_class: 3
+cache_duration_seconds: 300
+
+# Tolerance used when checking if a candle touched a level (fraction, 0.001 = 0.1%)
+extreme_touch_tolerance: 0.001
+
+# Swing-point lookback window (candles either side) used for divergence detection
+swing_lookback: 5
+
+# Tickers grouped by asset class
+tickers:
+  forex:   ["EURUSD=X", "GBPUSD=X", "USDJPY=X", "AUDUSD=X", "USDCAD=X", "NZDUSD=X", "USDCHF=X"]
+  metals:  ["GC=F", "SI=F"]
+  oil:     ["CL=F", "BZ=F"]
+  crypto:  ["BTC-USD", "ETH-USD"]
+
+# Human-readable display names
+ticker_names:
+  "EURUSD=X": "EUR/USD"
+  "GBPUSD=X": "GBP/USD"
+  "USDJPY=X": "USD/JPY"
+  "AUDUSD=X": "AUD/USD"
+  "USDCAD=X": "USD/CAD"
+  "NZDUSD=X": "NZD/USD"
+  "USDCHF=X": "USD/CHF"
+  "GC=F": "Gold"
+  "SI=F": "Silver"
+  "CL=F": "WTI Crude Oil"
+  "BZ=F": "Brent Crude Oil"
+  "BTC-USD": "Bitcoin"
+  "ETH-USD": "Ethereum"
