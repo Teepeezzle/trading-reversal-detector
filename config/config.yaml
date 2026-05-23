@@ -27,7 +27,7 @@ tickers:
 intraday_tickers:
   crypto:  ["BTC-USD"]
   metals:  ["GC=F", "SI=F"]
-  oil:     ["BZ=F"]
+  oil:     ["CL=F", "BZ=F"]
   indices: ["DX-Y.NYB", "NQ=F"]
 
 # Human-readable display names (covers both ticker blocks)
