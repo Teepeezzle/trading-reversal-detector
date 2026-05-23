@@ -51,6 +51,13 @@ CONFIG_PATH = REPO_ROOT / "config" / "config.yaml"
 LOG_DIR = REPO_ROOT / "logs"
 SIGNAL_LOG_PATH = LOG_DIR / "signals.log"
 EMAIL_LOG_PATH = LOG_DIR / "email.log"
+FETCH_ERROR_LOG_PATH = LOG_DIR / "fetch_errors.log"
+
+VALID_INTERVALS = ["15m", "30m", "1h", "4h", "1d"]
+VALID_SESSIONS = ["asian", "london", "newyork", "all"]
+# Minimum intraday bars required before we even attempt to detect a signal.
+MIN_INTRADAY_CANDLES = 50
+MIN_DAILY_CANDLES = 30
 
 
 def load_config(path: Path) -> Dict:
@@ -146,8 +153,14 @@ def scan_ticker(
     params: RiskParameters,
     session: SessionState,
     logger: logging.Logger,
+    interval: str = "1d",
+    session_filter: str = "all",
 ) -> List[ReversalSignal]:
     """Run the full pipeline for one ticker and return any signals.
+
+    Daily Price Levels are *always* derived from daily data, even when the
+    pattern frame is intraday — this matches how traders think about
+    horizontal support / resistance.
 
     Args:
         ticker: Yahoo-Finance symbol to scan.
@@ -156,21 +169,38 @@ def scan_ticker(
         params: Static risk parameters.
         session: Mutable session state.
         logger: Configured logger.
+        interval: Bar interval for pattern detection. ``"1d"`` reuses the
+            daily frame for both levels and pattern. Anything else fetches an
+            additional intraday frame.
+        session_filter: Session label passed through to the detector.
 
     Returns:
         Zero-or-more :class:`ReversalSignal` instances with SL/TP populated.
     """
     name = config.get("ticker_names", {}).get(ticker, ticker)
-    logger.info("Scanning %s (%s)", ticker, name)
+    logger.info("Scanning %s (%s) @%s", ticker, name, interval)
 
-    df = fetcher.fetch_ohlcv(ticker)
-    if df is None or len(df) < 30:
-        logger.warning("Skipping %s: insufficient data", ticker)
+    daily_df = fetcher.fetch_ohlcv(ticker, interval="1d")
+    if daily_df is None or len(daily_df) < MIN_DAILY_CANDLES:
+        logger.warning("Skipping %s: insufficient daily data for levels", ticker)
         return []
 
+    if interval == "1d":
+        pattern_df = daily_df
+    else:
+        pattern_df = fetcher.fetch_ohlcv(ticker, interval=interval)
+        if pattern_df is None or len(pattern_df) < MIN_INTRADAY_CANDLES:
+            logger.warning(
+                "Skipping %s: insufficient %s data (need >= %d bars)",
+                ticker,
+                interval,
+                MIN_INTRADAY_CANDLES,
+            )
+            return []
+
     try:
-        indicators = compute_indicators(df)
-        levels = compute_price_levels(ticker, df)
+        indicators = compute_indicators(pattern_df)
+        levels = compute_price_levels(ticker, daily_df)
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to compute features for %s: %s", ticker, exc)
         return []
@@ -178,13 +208,15 @@ def scan_ticker(
     raw_signals = detect_reversals(
         ticker=ticker,
         ticker_name=name,
-        df=df,
+        df=pattern_df,
         levels=levels,
         rsi_series=indicators.rsi_series,
         volume_ma_series=indicators.volume_ma_series,
         atr_value=indicators.atr,
         tolerance_pct=float(config.get("extreme_touch_tolerance", 0.001)),
         swing_lookback=int(config.get("swing_lookback", 5)),
+        interval=interval,
+        session_filter=session_filter,
     )
 
     finalised: List[ReversalSignal] = []
@@ -239,6 +271,28 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help=f"Path to config.yaml (default: {CONFIG_PATH}).",
     )
     parser.add_argument(
+        "--interval",
+        type=str,
+        choices=VALID_INTERVALS,
+        default="1d",
+        help=(
+            "Bar interval used for pattern detection. Daily / Weekly / "
+            "Monthly / Yearly reference levels are always derived from daily "
+            "data regardless of this flag. Default: 1d."
+        ),
+    )
+    parser.add_argument(
+        "--session",
+        type=str,
+        choices=VALID_SESSIONS,
+        default="all",
+        help=(
+            "Restrict signal generation to a trading session. "
+            "asian = 00-07 UTC, london = 07-12 UTC, newyork = 12-20 UTC. "
+            "Default: all."
+        ),
+    )
+    parser.add_argument(
         "--email",
         action="store_true",
         help=(
@@ -283,23 +337,42 @@ def main(argv: List[str] | None = None) -> int:
         max_positions_per_class=int(config.get("max_positions_per_class", 3)),
     )
     session = SessionState()
-    fetcher = DataFetcher(cache_duration_seconds=int(config.get("cache_duration_seconds", 300)))
+    fetcher = DataFetcher(error_log_path=FETCH_ERROR_LOG_PATH)
 
     if args.scan_all:
         tickers = flatten_tickers(config)
     else:
         tickers = [args.ticker]
 
+    interval = args.interval
+    session_filter = args.session
+
+    if interval != "1d":
+        print(
+            f"📊 INTRADAY SCAN | Interval: {interval} | Session: {session_filter}"
+        )
+
     logger.info(
-        "Starting scan at %s for %d ticker(s)",
+        "Starting scan at %s for %d ticker(s) | interval=%s session=%s",
         datetime.now(timezone.utc).isoformat(),
         len(tickers),
+        interval,
+        session_filter,
     )
 
     all_signals: List[ReversalSignal] = []
     for ticker in tickers:
         try:
-            signals = scan_ticker(ticker, config, fetcher, params, session, logger)
+            signals = scan_ticker(
+                ticker=ticker,
+                config=config,
+                fetcher=fetcher,
+                params=params,
+                session=session,
+                logger=logger,
+                interval=interval,
+                session_filter=session_filter,
+            )
         except Exception as exc:  # noqa: BLE001
             logger.error("Unhandled error scanning %s: %s", ticker, exc)
             continue

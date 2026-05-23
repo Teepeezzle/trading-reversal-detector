@@ -122,14 +122,25 @@ def format_signal(signal: ReversalSignal) -> str:
         f"Asset:        {asset_line}",
         f"Direction:    {direction_line}",
         f"Level:        {level_line}",
-        f"Entry Price:  {entry_str}",
-        f"Stop Loss:    {sl_str}",
-        f"Take Profit 1: {tp1_str}",
-        f"Take Profit 2: {tp2_str}",
-        f"Confidence:   {confidence_str}",
-        f"Reason:       {reason_wrapped}",
-        f"Timestamp:    {timestamp_str}",
     ]
+
+    # Only surface Interval/Session for intraday scans — daily scans keep the
+    # original line layout from the spec.
+    if signal.interval != "1d":
+        lines.append(f"Interval:     {signal.interval}")
+        lines.append(f"Session:      {signal.session}")
+
+    lines.extend(
+        [
+            f"Entry Price:  {entry_str}",
+            f"Stop Loss:    {sl_str}",
+            f"Take Profit 1: {tp1_str}",
+            f"Take Profit 2: {tp2_str}",
+            f"Confidence:   {confidence_str}",
+            f"Reason:       {reason_wrapped}",
+            f"Timestamp:    {timestamp_str}",
+        ]
+    )
 
     if signal.blocked:
         lines.append(f"⚠️  BLOCKED:    {signal.blocked_reason}")

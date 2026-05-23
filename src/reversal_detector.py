@@ -63,6 +63,42 @@ class ReversalSignal:
     timestamp: datetime
     blocked: bool = False
     blocked_reason: str = ""
+    interval: str = "1d"
+    session: str = "all"
+
+
+# Trading-session windows in UTC. Each tuple is ``[start_hour, end_hour)``.
+SESSION_WINDOWS = {
+    "asian": (0, 7),
+    "london": (7, 12),
+    "newyork": (12, 20),
+}
+
+
+def _within_session(session: str, now: Optional[datetime] = None) -> bool:
+    """Return True when ``now`` falls inside the named session window.
+
+    Args:
+        session: One of ``"asian"``, ``"london"``, ``"newyork"``, ``"all"``,
+            or any unknown value (which is treated as no filtering).
+        now: UTC timestamp to check. Defaults to ``datetime.now(timezone.utc)``.
+
+    Returns:
+        ``True`` to accept signals, ``False`` to short-circuit the scan.
+    """
+    if session == "all":
+        return True
+    window = SESSION_WINDOWS.get(session)
+    if window is None:
+        return True  # unknown session label → behave like "all"
+    if now is None:
+        now = datetime.now(timezone.utc)
+    hour = now.astimezone(timezone.utc).hour
+    return window[0] <= hour < window[1]
+
+
+# Minimum bars of history required before any signal can be generated.
+MIN_HISTORY_CANDLES = 50
 
 
 def _find_swing_lows(series: pd.Series, lookback: int = 5) -> List[int]:
@@ -211,15 +247,37 @@ def _attempt_signal_for_level(
     direction: str,
     tolerance_pct: float,
     swing_lookback: int,
+    interval: str,
+    session: str,
+    volume_multiplier: float,
 ) -> Optional[ReversalSignal]:
     """Evaluate all four conditions for one (level, direction) combination.
+
+    Args:
+        ticker: yfinance ticker.
+        ticker_name: Friendly display name.
+        df: OHLCV frame (intraday or daily, matching ``interval``).
+        rsi_series: Aligned RSI series.
+        volume_ma_series: Aligned Volume-MA(20) series.
+        atr_value: Latest ATR.
+        level_price: Reference price of the level.
+        level_type: ``"Daily"``/``"Weekly"``/``"Monthly"``/``"Yearly"``.
+        level_name: ``"High"`` (resistance) or ``"Low"`` (support).
+        direction: ``"LONG"`` or ``"SHORT"``.
+        tolerance_pct: Pierce tolerance (fraction).
+        swing_lookback: Window for divergence swing detection.
+        interval: Bar interval being evaluated (stamped onto the signal).
+        session: Session label being evaluated (stamped onto the signal).
+        volume_multiplier: Minimum ``Volume / VolumeMA`` to pass the volume
+            condition. ``1.0`` for daily, ``1.5`` for intraday.
 
     Returns:
         A populated ``ReversalSignal`` if all conditions pass, otherwise
         ``None``. SL/TP fields are placeholders (zeros) here and are filled by
         the risk manager downstream.
     """
-    if len(df) < (2 * swing_lookback + 2):
+    min_required = max(MIN_HISTORY_CANDLES, 2 * swing_lookback + 2)
+    if len(df) < min_required:
         return None
     if not np.isfinite(level_price) or level_price <= 0:
         return None
@@ -260,7 +318,8 @@ def _attempt_signal_for_level(
     volume_ma_value = float(volume_ma_series.iloc[-1]) if not volume_ma_series.empty else float("nan")
     volume_applicable = np.isfinite(volume_ma_value) and volume_ma_value > 0
     if volume_applicable:
-        if curr_volume <= volume_ma_value:
+        threshold = volume_ma_value * volume_multiplier
+        if curr_volume <= threshold:
             return None
         volume_ratio = curr_volume / volume_ma_value
     else:
@@ -302,6 +361,8 @@ def _attempt_signal_for_level(
         confidence_score=round(confidence, 0),
         reason_string=reason,
         timestamp=datetime.now(timezone.utc),
+        interval=interval,
+        session=session,
     )
 
 
@@ -315,6 +376,8 @@ def detect_reversals(
     atr_value: float,
     tolerance_pct: float = 0.001,
     swing_lookback: int = 5,
+    interval: str = "1d",
+    session_filter: str = "all",
 ) -> List[ReversalSignal]:
     """Scan all level / direction combinations and return raw signals.
 
@@ -322,20 +385,41 @@ def detect_reversals(
     responsible for filling them in (it owns the ATR-based math and applies
     portfolio-level limits).
 
+    Behavioural rules:
+        * The Daily / Weekly / Monthly / Yearly ``levels`` should always be
+          derived from **daily** data, even when the pattern frame ``df`` is
+          intraday — the caller is responsible for that.
+        * When ``interval != "1d"`` the volume condition requires
+          ``volume > 1.5 × VolumeMA(20)`` (vs ``1.0×`` on daily).
+        * When ``session_filter`` is set to a session label and current UTC
+          time is outside the window, the function short-circuits and returns
+          an empty list.
+        * A minimum of 50 bars of history is required.
+
     Args:
         ticker: Yahoo-Finance symbol.
         ticker_name: Human-readable display name.
-        df: OHLCV frame.
-        levels: Pre-computed :class:`PriceLevels` for this ticker.
+        df: OHLCV frame (intraday or daily — must match ``interval``).
+        levels: Pre-computed :class:`PriceLevels` (always from daily data).
         rsi_series: Full RSI series, index-aligned with ``df``.
         volume_ma_series: Full Volume-MA series, index-aligned with ``df``.
         atr_value: Latest ATR value.
         tolerance_pct: Pierce tolerance (fraction; 0.001 = 0.1%). Defaults 0.001.
         swing_lookback: Window for divergence swing detection. Defaults 5.
+        interval: Bar interval label (``"15m"``/``"30m"``/``"1h"``/``"4h"``/``"1d"``).
+        session_filter: ``"asian"``/``"london"``/``"newyork"``/``"all"``.
 
     Returns:
         A list of zero or more :class:`ReversalSignal` instances.
     """
+    if not _within_session(session_filter):
+        return []
+
+    if df is None or len(df) < MIN_HISTORY_CANDLES:
+        return []
+
+    volume_multiplier = 1.5 if interval != "1d" else 1.0
+
     signals: List[ReversalSignal] = []
 
     checks: List[Tuple[str, str, float, str]] = [
@@ -364,6 +448,9 @@ def detect_reversals(
                 direction=direction,
                 tolerance_pct=tolerance_pct,
                 swing_lookback=swing_lookback,
+                interval=interval,
+                session=session_filter,
+                volume_multiplier=volume_multiplier,
             )
         except Exception:  # noqa: BLE001 - never let one level kill the scan
             sig = None

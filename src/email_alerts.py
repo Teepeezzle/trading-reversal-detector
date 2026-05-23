@@ -90,6 +90,24 @@ def _signal_card_html(signal: ReversalSignal) -> str:
             f"⚠️ BLOCKED: {signal.blocked_reason}</div>"
         )
 
+    # Intraday-only rows. Daily signals keep their original card layout.
+    intraday_rows = ""
+    if signal.interval != "1d":
+        intraday_rows = f"""
+            <tr>
+              <td style="padding:4px 0;color:#6b7280;">Interval</td>
+              <td style="padding:4px 0;text-align:right;font-weight:600;">
+                {signal.interval}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:4px 0;color:#6b7280;">Session</td>
+              <td style="padding:4px 0;text-align:right;font-weight:600;">
+                {signal.session}
+              </td>
+            </tr>
+        """
+
     return f"""
     <table cellpadding="0" cellspacing="0" border="0" role="presentation"
            style="width:100%;margin-bottom:20px;border:1px solid #e5e7eb;
@@ -117,6 +135,7 @@ def _signal_card_html(signal: ReversalSignal) -> str:
                 {_format_price(signal.level_price, ticker)}
               </td>
             </tr>
+            {intraday_rows}
             <tr>
               <td style="padding:4px 0;color:#6b7280;">Entry</td>
               <td style="padding:4px 0;text-align:right;font-weight:600;">
@@ -253,10 +272,22 @@ def send_signal_email(
 
     count = len(signals)
     today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    subject = (
-        f"🔔 Trading Reversal Signals — {today_str} "
-        f"({count} signal{'s' if count != 1 else ''} found)"
-    )
+    plural = "s" if count != 1 else ""
+
+    # If every signal in the batch shares a non-daily interval, use the
+    # intraday subject; otherwise keep the original daily subject.
+    intervals = {s.interval for s in signals}
+    if len(intervals) == 1 and "1d" not in intervals:
+        only_interval = next(iter(intervals))
+        subject = (
+            f"📊 Intraday Signals ({only_interval}) — {today_str} "
+            f"({count} signal{plural} found)"
+        )
+    else:
+        subject = (
+            f"🔔 Trading Reversal Signals — {today_str} "
+            f"({count} signal{plural} found)"
+        )
     html_body = build_email_html(signals)
 
     msg = MIMEMultipart("alternative")
