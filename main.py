@@ -131,17 +131,41 @@ def append_signal_log(signal: ReversalSignal) -> None:
         fh.write(line)
 
 
-def flatten_tickers(config: Dict) -> List[str]:
-    """Return every ticker from ``config['tickers']`` as a flat list.
+def get_active_tickers_by_class(config: Dict, interval: str) -> Dict[str, List[str]]:
+    """Return the per-class ticker map appropriate for the given interval.
+
+    Intraday scans use ``config['intraday_tickers']`` when present — typically
+    a smaller, focused set so the every-4-hours cadence stays cheap and noise-
+    free. Daily scans always use the full ``config['tickers']`` map.
 
     Args:
         config: Loaded configuration dict.
+        interval: Bar interval (``"1d"`` / ``"15m"`` / ``"30m"`` / ``"1h"`` /
+            ``"4h"``).
+
+    Returns:
+        A ``{class_name: [ticker, ...]}`` map. Falls back to the daily map when
+        intraday is requested but no ``intraday_tickers`` block exists.
+    """
+    if interval != "1d":
+        intraday = config.get("intraday_tickers")
+        if intraday:
+            return intraday
+    return config.get("tickers", {})
+
+
+def flatten_tickers(tickers_by_class: Dict[str, List[str]]) -> List[str]:
+    """Flatten a ``{class: [ticker, ...]}`` map into a single ordered list.
+
+    Args:
+        tickers_by_class: The map returned by
+            :func:`get_active_tickers_by_class`.
 
     Returns:
         A list of ticker symbols, preserving the configured per-class order.
     """
     out: List[str] = []
-    for members in config.get("tickers", {}).values():
+    for members in tickers_by_class.values():
         out.extend(members)
     return out
 
@@ -155,6 +179,7 @@ def scan_ticker(
     logger: logging.Logger,
     interval: str = "1d",
     session_filter: str = "all",
+    tickers_by_class: Dict[str, List[str]] | None = None,
 ) -> List[ReversalSignal]:
     """Run the full pipeline for one ticker and return any signals.
 
@@ -173,10 +198,14 @@ def scan_ticker(
             daily frame for both levels and pattern. Anything else fetches an
             additional intraday frame.
         session_filter: Session label passed through to the detector.
+        tickers_by_class: Active per-class ticker map for risk-manager lookups.
+            Defaults to the full daily map when omitted.
 
     Returns:
         Zero-or-more :class:`ReversalSignal` instances with SL/TP populated.
     """
+    if tickers_by_class is None:
+        tickers_by_class = config.get("tickers", {})
     name = config.get("ticker_names", {}).get(ticker, ticker)
     logger.info("Scanning %s (%s) @%s", ticker, name, interval)
 
@@ -232,7 +261,7 @@ def scan_ticker(
             risk=risk,
             session=session,
             params=params,
-            tickers_by_class=config.get("tickers", {}),
+            tickers_by_class=tickers_by_class,
         )
 
         signal.stop_loss = risk.stop_loss
@@ -241,7 +270,7 @@ def scan_ticker(
         signal.blocked = risk.blocked
         signal.blocked_reason = risk.blocked_reason
 
-        register_signal(signal, session, config.get("tickers", {}))
+        register_signal(signal, session, tickers_by_class)
         finalised.append(signal)
 
     return finalised
@@ -339,13 +368,14 @@ def main(argv: List[str] | None = None) -> int:
     session = SessionState()
     fetcher = DataFetcher(error_log_path=FETCH_ERROR_LOG_PATH)
 
-    if args.scan_all:
-        tickers = flatten_tickers(config)
-    else:
-        tickers = [args.ticker]
-
     interval = args.interval
     session_filter = args.session
+
+    active_tickers_by_class = get_active_tickers_by_class(config, interval)
+    if args.scan_all:
+        tickers = flatten_tickers(active_tickers_by_class)
+    else:
+        tickers = [args.ticker]
 
     if interval != "1d":
         print(
@@ -372,6 +402,7 @@ def main(argv: List[str] | None = None) -> int:
                 logger=logger,
                 interval=interval,
                 session_filter=session_filter,
+                tickers_by_class=active_tickers_by_class,
             )
         except Exception as exc:  # noqa: BLE001
             logger.error("Unhandled error scanning %s: %s", ticker, exc)

@@ -13,14 +13,24 @@ extreme_touch_tolerance: 0.001
 # Swing-point lookback window (candles either side) used for divergence detection
 swing_lookback: 5
 
-# Tickers grouped by asset class
+# Tickers grouped by asset class.
+# This block drives the DAILY scan (--interval 1d) and the per-class risk cap.
 tickers:
   forex:   ["EURUSD=X", "GBPUSD=X", "USDJPY=X", "AUDUSD=X", "USDCAD=X", "NZDUSD=X", "USDCHF=X"]
   metals:  ["GC=F", "SI=F"]
   oil:     ["CL=F", "BZ=F"]
   crypto:  ["BTC-USD", "ETH-USD"]
 
-# Human-readable display names
+# Smaller, focused list used when --interval is anything other than 1d
+# (15m / 30m / 1h / 4h). When this block is absent the intraday scan falls back
+# to the full `tickers` list above.
+intraday_tickers:
+  crypto:  ["BTC-USD"]
+  metals:  ["GC=F", "SI=F"]
+  oil:     ["BZ=F"]
+  indices: ["DX-Y.NYB", "NQ=F"]
+
+# Human-readable display names (covers both ticker blocks)
 ticker_names:
   "EURUSD=X": "EUR/USD"
   "GBPUSD=X": "GBP/USD"
@@ -35,3 +45,5 @@ ticker_names:
   "BZ=F": "Brent Crude Oil"
   "BTC-USD": "Bitcoin"
   "ETH-USD": "Ethereum"
+  "DX-Y.NYB": "US Dollar Index"
+  "NQ=F": "Nasdaq 100"
