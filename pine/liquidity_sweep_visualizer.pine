@@ -1,0 +1,72 @@
+//@version=6
+// =====================================================================
+// Liquidity Sweep + Divergence Rejection — VISUALIZER (context, NOT a signal)
+// Pine v6 · free plan.
+//
+// HONEST LABEL — read before using:
+//   A 1h backtest on BTC/Gold/Oil of "fade the sweep + divergence" was
+//   NEGATIVE in every configuration (expectancy -0.23 to -0.33 R). This is
+//   NOT a validated profitable system. The stop-hunt concept is real but
+//   lives on 1-5min charts with order-flow data that free feeds don't provide,
+//   so it could not be properly validated. This script only MARKS the
+//   structure (sweep wick over a swing high/low, close-back rejection, MACD
+//   divergence) for DISCRETIONARY context. It draws no profit promise and no
+//   auto buy/sell. Judge any trade by expectancy, never by win rate.
+// =====================================================================
+indicator("Liquidity Sweep + Divergence [Visualizer]", overlay = true,
+     max_lines_count = 500, max_labels_count = 500)
+
+pivLen  = input.int(5,  "Swing pivot length", minval = 2)
+useDiv  = input.bool(true, "Require MACD divergence")
+bufATR  = input.float(0.10, "Stop buffer beyond wick (ATR)", step = 0.05)
+showStops = input.bool(true, "Draw suggested stop / invalidation")
+
+[macdLine, _s, _h] = ta.macd(close, 12, 26, 9)
+atr = ta.atr(14)
+
+ph = ta.pivothigh(high, pivLen, pivLen)
+pl = ta.pivotlow(low,  pivLen, pivLen)
+
+// Track most recent confirmed swing high/low and its MACD
+var float shVal = na, var float shMacd = na
+var float slVal = na, var float slMacd = na
+if not na(ph)
+    shVal := ph
+    shMacd := macdLine[pivLen]
+if not na(pl)
+    slVal := pl
+    slMacd := macdLine[pivLen]
+
+// Bearish sweep+reject: wick over swing high, close back below, MACD lower, red bar
+bearSweep = not na(shVal) and high > shVal and close < shVal and close < open and
+     (useDiv ? macdLine < shMacd : true)
+// Bullish sweep+reject: wick under swing low, close back above, MACD higher, green bar
+bullSweep = not na(slVal) and low < slVal and close > slVal and close > open and
+     (useDiv ? macdLine > slMacd : true)
+
+if bearSweep
+    label.new(bar_index, high, "Bear sweep\n(reject HH)", style = label.style_label_down,
+         color = color.new(color.red, 20), textcolor = color.white, size = size.small)
+    if showStops
+        line.new(bar_index, high + bufATR * atr, bar_index + 6, high + bufATR * atr,
+             color = color.new(color.red, 0), style = line.style_dashed)
+if bullSweep
+    label.new(bar_index, low, "Bull sweep\n(reject LL)", style = label.style_label_up,
+         color = color.new(color.green, 20), textcolor = color.white, size = size.small)
+    if showStops
+        line.new(bar_index, low - bufATR * atr, bar_index + 6, low - bufATR * atr,
+             color = color.new(color.green, 0), style = line.style_dashed)
+
+plotshape(bearSweep, "BearSweep", shape.xcross, location.abovebar, color.red,   size = size.tiny)
+plotshape(bullSweep, "BullSweep", shape.xcross, location.belowbar, color.green, size = size.tiny)
+
+if barstate.islast
+    var table tb = table.new(position.bottom_right, 1, 1, border_width = 1)
+    table.cell(tb, 0, 0,
+         "CONTEXT ONLY — not a signal.\n1h backtest of this fade was NEGATIVE\n" +
+         "(-0.23 to -0.33 R). Discretionary use on\nlow timeframes; judge by expectancy.",
+         text_color = color.white, bgcolor = color.new(color.maroon, 10),
+         text_size = size.small, text_halign = text.align_left)
+
+alertcondition(bearSweep, "Bearish liquidity sweep", "Bearish sweep+reject on {{ticker}} @ {{close}}")
+alertcondition(bullSweep, "Bullish liquidity sweep", "Bullish sweep+reject on {{ticker}} @ {{close}}")

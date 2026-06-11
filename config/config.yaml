@@ -2,6 +2,32 @@
 
 account_balance: 10000
 risk_per_trade_pct: 2.0
+
+# ───────────────────────────────────────────────────────────────────────
+# VALIDATED DAILY BREAKOUT STRATEGY (the one edge that passed every test:
+# out-of-sample, walk-forward, and 26-year portfolio — see backtest/).
+# Used by breakout_scan.py. Long-only, daily timeframe. Parameters are FIXED
+# and deliberately not tunable — re-optimizing reintroduces curve-fit.
+# ───────────────────────────────────────────────────────────────────────
+breakout:
+  account_balance: 10000
+  risk_per_trade_pct: 1.0          # validated at 1%; scale only after paper-trading
+  max_concurrent_positions: 4
+  basket:
+    - "BTC-USD"
+    - "ETH-USD"
+    - "GC=F"
+    - "SI=F"
+    - "CL=F"
+    - "NQ=F"
+  basket_names:
+    "BTC-USD": "Bitcoin"
+    "ETH-USD": "Ethereum"
+    "GC=F": "Gold"
+    "SI=F": "Silver"
+    "CL=F": "WTI Crude Oil"
+    "NQ=F": "Nasdaq 100"
+
 max_daily_loss_pct: 6.0
 max_concurrent_positions: 8
 max_positions_per_class: 3

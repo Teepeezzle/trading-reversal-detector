@@ -1,0 +1,46 @@
+name: Daily Breakout Scan (validated edge)
+
+# Runs the VALIDATED daily long-breakout strategy once per weekday after the
+# US cash close (21:30 UTC), when the daily candles have settled. Emails any
+# breakout signals. workflow_dispatch allows manual runs.
+on:
+  schedule:
+    - cron: "30 21 * * 1-5"
+  workflow_dispatch:
+
+jobs:
+  breakout-scan:
+    name: Scan basket for daily breakouts and email signals
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run daily breakout scan and email alerts
+        env:
+          EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          PYTHONIOENCODING: "utf-8"
+        run: python breakout_scan.py --email
+
+      - name: Upload run logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: breakout-logs-${{ github.run_id }}
+          path: logs/
+          if-no-files-found: ignore
+          retention-days: 14

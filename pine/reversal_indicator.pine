@@ -1,0 +1,148 @@
+//@version=5
+// =====================================================================
+// Reversal-at-Extreme — INDICATOR (alerts + level/signal plotting)
+// TradingView Pine v5 · works on the FREE plan.
+//
+// Mirrors the corrected Python logic from trading-reversal-detector:
+//   1. TRUE PIERCE     : previous bar's wick traded THROUGH a prior-period
+//                        high/low (not just "near" it).
+//   2. CLOSE-BACK      : current bar closed back inside the level AND within
+//                        1 ATR of it (a real rejection, not a level long gone).
+//   3. RSI DIVERGENCE  : bullish (price LL / RSI HL) for longs,
+//                        bearish (price HH / RSI LH) for shorts.
+//   4. VOLUME CONFIRM  : volume > 1.5x its 20-SMA (soft-pass if no volume).
+//   5. MACRO GATE      : block SHORTs in a daily-200SMA uptrend and LONGs in a
+//                        downtrend — stop fading strong trends (the #1 loss
+//                        source on Gold/Silver in backtest).
+//   6. PRIORITY DEDUPE : if several levels coincide, only the most significant
+//                        (Yearly > Monthly > Weekly > Daily) fires.
+//
+// Levels are PRIOR completed period extremes (PDH/PDL/PWH/PWL/PMH/PML/PYH/PYL)
+// pulled with the non-repainting security idiom (expr[1] + lookahead_on).
+// =====================================================================
+indicator("Reversal-at-Extreme [Indicator]", overlay = true, max_lines_count = 500)
+
+// ---------------- Inputs ----------------
+grpC   = "Conditions"
+maxCB     = input.float(1.0,  "Close-back max distance (ATR)", minval = 0.1, group = grpC)
+atrLen    = input.int(14,     "ATR length",                   minval = 1,   group = grpC)
+rsiLen    = input.int(14,     "RSI length",                   minval = 2,   group = grpC)
+pivLen    = input.int(5,      "Divergence pivot lookback",    minval = 2,   group = grpC)
+volLen    = input.int(20,     "Volume MA length",             minval = 1,   group = grpC)
+volMult   = input.float(1.5,  "Volume multiple",              minval = 0.0, group = grpC)
+requireVol= input.bool(false, "Require volume (reject if none)",            group = grpC)
+erMin     = input.float(0.30, "Min efficiency ratio (skip chop)", minval = 0.0, maxval = 1.0, group = grpC)
+
+grpM   = "Macro-trend gate"
+useMacro  = input.bool(true,  "Use daily 200-SMA macro gate", group = grpM)
+maLen     = input.int(200,    "Macro SMA length",  minval = 20, group = grpM)
+maSlopeLb = input.int(20,     "Macro slope lookback", minval = 1, group = grpM)
+
+grpL   = "Levels"
+useD = input.bool(true, "Daily",   inline = "lv", group = grpL)
+useW = input.bool(true, "Weekly",  inline = "lv", group = grpL)
+useM = input.bool(true, "Monthly", inline = "lv", group = grpL)
+useY = input.bool(true, "Yearly",  inline = "lv", group = grpL)
+showLevels = input.bool(true, "Plot levels", group = grpL)
+
+// ---------------- Core series ----------------
+atr   = ta.atr(atrLen)
+rsi   = ta.rsi(close, rsiLen)
+volMA = ta.sma(volume, volLen)
+
+// ---------------- Prior-period levels (non-repainting) ----------------
+f_levels(tf) =>
+    h = request.security(syminfo.tickerid, tf, high[1], barmerge.gaps_off, barmerge.lookahead_on)
+    l = request.security(syminfo.tickerid, tf, low[1],  barmerge.gaps_off, barmerge.lookahead_on)
+    [h, l]
+
+[pdh, pdl] = f_levels("D")
+[pwh, pwl] = f_levels("W")
+[pmh, pml] = f_levels("M")
+[pyh, pyl] = f_levels("12M")
+
+// ---------------- Macro trend (daily 200-SMA + slope) ----------------
+sma_now  = request.security(syminfo.tickerid, "D", ta.sma(close, maLen)[1],            barmerge.gaps_off, barmerge.lookahead_on)
+sma_prev = request.security(syminfo.tickerid, "D", ta.sma(close, maLen)[1 + maSlopeLb], barmerge.gaps_off, barmerge.lookahead_on)
+dClose   = request.security(syminfo.tickerid, "D", close[1],                            barmerge.gaps_off, barmerge.lookahead_on)
+slope    = na(sma_now) or sma_now == 0 ? 0.0 : (sma_now - sma_prev) / sma_now
+macroUp   = useMacro and not na(sma_now) and dClose > sma_now and slope >  0.002
+macroDown = useMacro and not na(sma_now) and dClose < sma_now and slope < -0.002
+
+// ---------------- Efficiency ratio (chart timeframe, 20 bars) ----------------
+erChange = math.abs(close - close[20])
+erVol    = math.sum(math.abs(close - close[1]), 20)
+er       = erVol != 0 ? erChange / erVol : 0.0
+erOk     = er >= erMin
+
+// ---------------- Volume confirmation ----------------
+volApplicable = not na(volMA) and volMA > 0
+volOk = volApplicable ? (volume > volMult * volMA) : (not requireVol)
+
+// ---------------- RSI divergence via pivots ----------------
+pl = ta.pivotlow(low, pivLen, pivLen)
+ph = ta.pivothigh(high, pivLen, pivLen)
+
+var float pLow1 = na, var float pLow2 = na, var float rLow1 = na, var float rLow2 = na
+if not na(pl)
+    pLow2 := pLow1, pLow1 := pl
+    rLow2 := rLow1, rLow1 := rsi[pivLen]
+bullDiv = not na(pLow1) and not na(pLow2) and pLow1 < pLow2 and rLow1 > rLow2
+
+var float pHigh1 = na, var float pHigh2 = na, var float rHigh1 = na, var float rHigh2 = na
+if not na(ph)
+    pHigh2 := pHigh1, pHigh1 := ph
+    rHigh2 := rHigh1, rHigh1 := rsi[pivLen]
+bearDiv = not na(pHigh1) and not na(pHigh2) and pHigh1 > pHigh2 and rHigh1 < rHigh2
+
+// ---------------- Level tests (pierce + close-back within 1 ATR) ----------------
+f_long(lv)  => not na(lv) and low[1]  < lv and close > lv and (close - lv) <= maxCB * atr
+f_short(lv) => not na(lv) and high[1] > lv and close < lv and (lv - close) <= maxCB * atr
+
+// Highest-priority qualifying support (long) / resistance (short) -> dedupe
+float longLevel  = na
+string longName  = na
+if useY and f_long(pyl)
+    longLevel := pyl, longName := "Yearly Low"
+else if useM and f_long(pml)
+    longLevel := pml, longName := "Monthly Low"
+else if useW and f_long(pwl)
+    longLevel := pwl, longName := "Weekly Low"
+else if useD and f_long(pdl)
+    longLevel := pdl, longName := "Daily Low"
+
+float shortLevel = na
+string shortName = na
+if useY and f_short(pyh)
+    shortLevel := pyh, shortName := "Yearly High"
+else if useM and f_short(pmh)
+    shortLevel := pmh, shortName := "Monthly High"
+else if useW and f_short(pwh)
+    shortLevel := pwh, shortName := "Weekly High"
+else if useD and f_short(pdh)
+    shortLevel := pdh, shortName := "Daily High"
+
+// ---------------- Final signals ----------------
+longSig  = not na(longLevel)  and bullDiv and volOk and erOk and not macroDown
+shortSig = not na(shortLevel) and bearDiv and volOk and erOk and not macroUp
+
+// ---------------- Plotting ----------------
+plot(showLevels and useD ? pdh : na, "PDH", color.new(color.red,   40), 1, plot.style_linebr)
+plot(showLevels and useD ? pdl : na, "PDL", color.new(color.green, 40), 1, plot.style_linebr)
+plot(showLevels and useW ? pwh : na, "PWH", color.new(color.red,   20), 1, plot.style_linebr)
+plot(showLevels and useW ? pwl : na, "PWL", color.new(color.green, 20), 1, plot.style_linebr)
+plot(showLevels and useM ? pmh : na, "PMH", color.new(color.orange,10), 2, plot.style_linebr)
+plot(showLevels and useM ? pml : na, "PML", color.new(color.lime,  10), 2, plot.style_linebr)
+plot(showLevels and useY ? pyh : na, "PYH", color.new(color.maroon, 0), 2, plot.style_linebr)
+plot(showLevels and useY ? pyl : na, "PYL", color.new(color.teal,   0), 2, plot.style_linebr)
+
+plotshape(longSig,  "LONG",  shape.triangleup,   location.belowbar, color.new(color.green, 0), size = size.small, text = "LONG")
+plotshape(shortSig, "SHORT", shape.triangledown, location.abovebar, color.new(color.red,   0), size = size.small, text = "SHORT")
+
+// Optional macro-regime background tint
+bgcolor(macroUp ? color.new(color.green, 92) : macroDown ? color.new(color.red, 92) : na, title = "Macro regime")
+
+// ---------------- Alerts (free plan: 1 active alert) ----------------
+alertcondition(longSig,  "Reversal LONG",  "LONG reversal at {{ticker}} support — entry {{close}}")
+alertcondition(shortSig, "Reversal SHORT", "SHORT reversal at {{ticker}} resistance — entry {{close}}")
+alertcondition(longSig or shortSig, "Reversal ANY", "Reversal signal on {{ticker}} @ {{close}}")

@@ -65,12 +65,21 @@ def _safe_min(series: pd.Series, fallback: float) -> float:
     return float(val) if pd.notna(val) else fallback
 
 
-def compute_price_levels(ticker: str, df: pd.DataFrame) -> PriceLevels:
+def compute_price_levels(
+    ticker: str, df: pd.DataFrame, exclude_last: int = 1
+) -> PriceLevels:
     """Derive significant horizontal levels for a single ticker.
 
     Args:
         ticker: Yahoo-Finance symbol (used only for the returned dataclass).
         df: OHLCV frame with at least 2 rows; index must be a ``DatetimeIndex``.
+        exclude_last: How many trailing rows to treat as "not yet usable" when
+            picking the daily reference candle. ``1`` (default, legacy) makes
+            the daily level the previous bar (``iloc[-2]``) — which on the 1d
+            timeframe equals the very bar the detector tests for a touch,
+            producing a vacuous self-touch. ``2`` steps the daily reference
+            back one more bar (``iloc[-3]``) so the touch bar and the level are
+            distinct.
 
     Returns:
         A populated ``PriceLevels`` instance.
@@ -78,14 +87,18 @@ def compute_price_levels(ticker: str, df: pd.DataFrame) -> PriceLevels:
     Raises:
         ValueError: If ``df`` has fewer than 2 rows or lacks a DatetimeIndex.
     """
-    if df is None or len(df) < 2:
-        raise ValueError(f"Need at least 2 rows of OHLCV data for {ticker}")
+    if df is None or len(df) < (exclude_last + 1):
+        raise ValueError(
+            f"Need at least {exclude_last + 1} rows of OHLCV data for {ticker}"
+        )
     if not isinstance(df.index, pd.DatetimeIndex):
         raise ValueError(f"DataFrame for {ticker} must be DatetimeIndex-ed")
 
-    # Daily reference = previous completed candle (so the current candle can
-    # plausibly pierce it). df.iloc[-1] is "current", df.iloc[-2] is "previous".
-    prev = df.iloc[-2]
+    # Daily reference = the most recent *completed* candle that is NOT the bar
+    # the detector will test for a touch. With exclude_last=1 this is iloc[-2]
+    # (legacy); with exclude_last=2 it is iloc[-3], keeping the level distinct
+    # from the touch bar so the test isn't vacuous.
+    prev = df.iloc[-(exclude_last + 1)]
     daily_high = float(prev["High"])
     daily_low = float(prev["Low"])
 
@@ -94,9 +107,9 @@ def compute_price_levels(ticker: str, df: pd.DataFrame) -> PriceLevels:
     # data.
     ref_ts: pd.Timestamp = df.index[-1]
 
-    # Strip the current candle for period aggregations so the level is
-    # historical, not self-defining.
-    history = df.iloc[:-1]
+    # Strip the current (and any excluded) candles for period aggregations so
+    # the level is historical, not self-defining.
+    history = df.iloc[:-exclude_last]
 
     # Current ISO week (Mon..Sun)
     week_start = ref_ts.normalize() - pd.Timedelta(days=ref_ts.weekday())

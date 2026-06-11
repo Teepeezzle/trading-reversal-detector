@@ -1,0 +1,166 @@
+//@version=5
+// =====================================================================
+// Reversal-at-Extreme — STRATEGY (backtestable in TradingView tester)
+// Pine v5 · works on the FREE plan.
+//
+// Same signal engine as the indicator (true pierce, close-back within 1 ATR,
+// RSI divergence, volume confirm, macro-trend gate, priority dedupe), plus the
+// risk model from the Python backtest:
+//   SL  = level -/+ 1.0 x ATR (beyond the level)
+//   TP1 = entry +/- 2R  (close 50%)
+//   TP2 = entry +/- 4R  (close 50%)
+//   size = (equity x risk%) / risk-per-unit
+// Commission 0.05% and 2-tick slippage are set in the strategy() header to
+// match the backtest assumptions. One position at a time (no pyramiding).
+// =====================================================================
+strategy("Reversal-at-Extreme [Strategy]", overlay = true,
+     default_qty_type = strategy.fixed, pyramiding = 0,
+     commission_type = strategy.commission.percent, commission_value = 0.05,
+     slippage = 2, initial_capital = 10000, calc_on_every_tick = false)
+
+// ---------------- Inputs ----------------
+grpR = "Risk"
+riskPct  = input.float(1.0, "Risk per trade (% equity)", minval = 0.1, group = grpR)
+atrMult  = input.float(1.0, "Stop distance beyond level (ATR)", minval = 0.1, group = grpR)
+tp1R     = input.float(2.0, "TP1 (R multiple)", minval = 0.5, group = grpR)
+tp2R     = input.float(4.0, "TP2 (R multiple)", minval = 0.5, group = grpR)
+
+grpC = "Conditions"
+maxCB     = input.float(1.0,  "Close-back max distance (ATR)", minval = 0.1, group = grpC)
+atrLen    = input.int(14,     "ATR length",  minval = 1, group = grpC)
+rsiLen    = input.int(14,     "RSI length",  minval = 2, group = grpC)
+pivLen    = input.int(5,      "Divergence pivot lookback", minval = 2, group = grpC)
+volLen    = input.int(20,     "Volume MA length", minval = 1, group = grpC)
+volMult   = input.float(1.5,  "Volume multiple", minval = 0.0, group = grpC)
+requireVol= input.bool(false, "Require volume (reject if none)", group = grpC)
+erMin     = input.float(0.30, "Min efficiency ratio (skip chop)", minval = 0.0, maxval = 1.0, group = grpC)
+
+grpM = "Macro-trend gate"
+useMacro  = input.bool(true, "Use daily 200-SMA macro gate", group = grpM)
+maLen     = input.int(200,   "Macro SMA length", minval = 20, group = grpM)
+maSlopeLb = input.int(20,    "Macro slope lookback", minval = 1, group = grpM)
+
+grpL = "Levels"
+useD = input.bool(true, "Daily",   inline = "lv", group = grpL)
+useW = input.bool(true, "Weekly",  inline = "lv", group = grpL)
+useM = input.bool(true, "Monthly", inline = "lv", group = grpL)
+useY = input.bool(true, "Yearly",  inline = "lv", group = grpL)
+
+// ---------------- Core series ----------------
+atr   = ta.atr(atrLen)
+rsi   = ta.rsi(close, rsiLen)
+volMA = ta.sma(volume, volLen)
+
+// ---------------- Prior-period levels (non-repainting) ----------------
+f_levels(tf) =>
+    h = request.security(syminfo.tickerid, tf, high[1], barmerge.gaps_off, barmerge.lookahead_on)
+    l = request.security(syminfo.tickerid, tf, low[1],  barmerge.gaps_off, barmerge.lookahead_on)
+    [h, l]
+
+[pdh, pdl] = f_levels("D")
+[pwh, pwl] = f_levels("W")
+[pmh, pml] = f_levels("M")
+[pyh, pyl] = f_levels("12M")
+
+// ---------------- Macro trend ----------------
+sma_now  = request.security(syminfo.tickerid, "D", ta.sma(close, maLen)[1],             barmerge.gaps_off, barmerge.lookahead_on)
+sma_prev = request.security(syminfo.tickerid, "D", ta.sma(close, maLen)[1 + maSlopeLb], barmerge.gaps_off, barmerge.lookahead_on)
+dClose   = request.security(syminfo.tickerid, "D", close[1],                            barmerge.gaps_off, barmerge.lookahead_on)
+slope    = na(sma_now) or sma_now == 0 ? 0.0 : (sma_now - sma_prev) / sma_now
+macroUp   = useMacro and not na(sma_now) and dClose > sma_now and slope >  0.002
+macroDown = useMacro and not na(sma_now) and dClose < sma_now and slope < -0.002
+
+// ---------------- Efficiency ratio ----------------
+erChange = math.abs(close - close[20])
+erVol    = math.sum(math.abs(close - close[1]), 20)
+er       = erVol != 0 ? erChange / erVol : 0.0
+erOk     = er >= erMin
+
+// ---------------- Volume confirmation ----------------
+volApplicable = not na(volMA) and volMA > 0
+volOk = volApplicable ? (volume > volMult * volMA) : (not requireVol)
+
+// ---------------- RSI divergence via pivots ----------------
+pl = ta.pivotlow(low, pivLen, pivLen)
+ph = ta.pivothigh(high, pivLen, pivLen)
+
+var float pLow1 = na, var float pLow2 = na, var float rLow1 = na, var float rLow2 = na
+if not na(pl)
+    pLow2 := pLow1, pLow1 := pl
+    rLow2 := rLow1, rLow1 := rsi[pivLen]
+bullDiv = not na(pLow1) and not na(pLow2) and pLow1 < pLow2 and rLow1 > rLow2
+
+var float pHigh1 = na, var float pHigh2 = na, var float rHigh1 = na, var float rHigh2 = na
+if not na(ph)
+    pHigh2 := pHigh1, pHigh1 := ph
+    rHigh2 := rHigh1, rHigh1 := rsi[pivLen]
+bearDiv = not na(pHigh1) and not na(pHigh2) and pHigh1 > pHigh2 and rHigh1 < rHigh2
+
+// ---------------- Level tests + priority dedupe ----------------
+f_long(lv)  => not na(lv) and low[1]  < lv and close > lv and (close - lv) <= maxCB * atr
+f_short(lv) => not na(lv) and high[1] > lv and close < lv and (lv - close) <= maxCB * atr
+
+float longLevel = na
+if useY and f_long(pyl)
+    longLevel := pyl
+else if useM and f_long(pml)
+    longLevel := pml
+else if useW and f_long(pwl)
+    longLevel := pwl
+else if useD and f_long(pdl)
+    longLevel := pdl
+
+float shortLevel = na
+if useY and f_short(pyh)
+    shortLevel := pyh
+else if useM and f_short(pmh)
+    shortLevel := pmh
+else if useW and f_short(pwh)
+    shortLevel := pwh
+else if useD and f_short(pdh)
+    shortLevel := pdh
+
+longSig  = not na(longLevel)  and bullDiv and volOk and erOk and not macroDown
+shortSig = not na(shortLevel) and bearDiv and volOk and erOk and not macroUp
+
+// ---------------- Order management ----------------
+var float slPx  = na
+var float tp1Px = na
+var float tp2Px = na
+
+// LONG entry
+if longSig and strategy.position_size == 0
+    sl   = longLevel - atrMult * atr
+    risk = close - sl
+    if risk > 0
+        slPx  := sl
+        tp1Px := close + tp1R * risk
+        tp2Px := close + tp2R * risk
+        qty = (strategy.equity * riskPct / 100.0) / risk
+        strategy.entry("Long", strategy.long, qty = qty)
+
+// SHORT entry
+if shortSig and strategy.position_size == 0
+    sl   = shortLevel + atrMult * atr
+    risk = sl - close
+    if risk > 0
+        slPx  := sl
+        tp1Px := close - tp1R * risk
+        tp2Px := close - tp2R * risk
+        qty = (strategy.equity * riskPct / 100.0) / risk
+        strategy.entry("Short", strategy.short, qty = qty)
+
+// Scale-out exits (50% at TP1, remainder at TP2, shared stop — no BE move)
+if strategy.position_size > 0
+    strategy.exit("L-TP1", from_entry = "Long", qty_percent = 50, limit = tp1Px, stop = slPx)
+    strategy.exit("L-TP2", from_entry = "Long", limit = tp2Px, stop = slPx)
+if strategy.position_size < 0
+    strategy.exit("S-TP1", from_entry = "Short", qty_percent = 50, limit = tp1Px, stop = slPx)
+    strategy.exit("S-TP2", from_entry = "Short", limit = tp2Px, stop = slPx)
+
+// ---------------- Visuals ----------------
+plot(strategy.position_size != 0 ? slPx  : na, "SL",  color.red,    1, plot.style_linebr)
+plot(strategy.position_size != 0 ? tp1Px : na, "TP1", color.green,  1, plot.style_linebr)
+plot(strategy.position_size != 0 ? tp2Px : na, "TP2", color.lime,   1, plot.style_linebr)
+plotshape(longSig  and strategy.position_size == 0, "LONG",  shape.triangleup,   location.belowbar, color.green, size = size.small)
+plotshape(shortSig and strategy.position_size == 0, "SHORT", shape.triangledown, location.abovebar, color.red,   size = size.small)

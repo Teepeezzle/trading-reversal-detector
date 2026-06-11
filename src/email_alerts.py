@@ -329,3 +329,110 @@ def send_signal_email(
         "Email alert sent to %s with %d signal(s)", email_address, count
     )
     return True
+
+
+def _send_html_email(
+    subject: str,
+    html_body: str,
+    email_address: str,
+    email_password: str,
+    log_path: Path,
+) -> bool:
+    """Send a pre-built HTML email via Gmail SMTP (shared sender core).
+
+    Args:
+        subject: Email subject line.
+        html_body: Full HTML body.
+        email_address: Gmail sender / recipient.
+        email_password: Gmail App Password.
+        log_path: Where to append SMTP error lines.
+
+    Returns:
+        True on success, False on any handled failure.
+    """
+    if not email_address or not email_password:
+        _log_email_error(log_path, "EMAIL_ADDRESS / EMAIL_PASSWORD not set — skipping send.")
+        return False
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = email_address
+    msg["To"] = email_address
+    msg.attach(MIMEText(html_body, "html", _charset="utf-8"))
+    try:
+        ctx = ssl.create_default_context()
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT_SECONDS) as server:
+            server.ehlo()
+            server.starttls(context=ctx)
+            server.ehlo()
+            server.login(email_address, email_password)
+            server.send_message(msg)
+    except smtplib.SMTPAuthenticationError as exc:
+        _log_email_error(log_path, f"SMTPAuthenticationError ({exc.smtp_code}): {exc.smtp_error!r}")
+        return False
+    except (smtplib.SMTPException, OSError, ssl.SSLError) as exc:
+        _log_email_error(log_path, f"SMTP/network error: {exc}")
+        return False
+    except Exception as exc:  # noqa: BLE001
+        _log_email_error(log_path, f"Unexpected error: {exc}")
+        return False
+    logger.info("Breakout email sent to %s", email_address)
+    return True
+
+
+def _breakout_card_html(sig) -> str:
+    """Render one breakout signal as an HTML card."""
+    tk = sig.ticker
+    fmt = lambda v: _format_price(v, tk)  # noqa: E731
+    return f"""
+    <table cellpadding="0" cellspacing="0" border="0" role="presentation"
+           style="width:100%;margin-bottom:18px;border:1px solid #e5e7eb;border-radius:8px;
+                  background:#fff;font-family:Arial,Helvetica,sans-serif;">
+      <tr><td style="background:#16a34a;color:#fff;padding:14px 18px;border-radius:8px 8px 0 0;">
+        <div style="font-size:18px;font-weight:bold;">{sig.ticker_display_name} ({tk})</div>
+        <div style="font-size:14px;margin-top:4px;">📈 LONG · daily breakout</div>
+      </td></tr>
+      <tr><td style="padding:16px 18px;font-size:14px;color:#111827;">
+        <table style="width:100%;font-size:14px;">
+          <tr><td style="color:#6b7280;padding:3px 0;">Entry</td><td style="text-align:right;font-weight:600;">{fmt(sig.entry_price)}</td></tr>
+          <tr><td style="color:#6b7280;padding:3px 0;">Stop loss</td><td style="text-align:right;color:#dc2626;">{fmt(sig.stop_loss)} ({_signed_pct(sig.entry_price, sig.stop_loss)})</td></tr>
+          <tr><td style="color:#6b7280;padding:3px 0;">Take profit</td><td style="text-align:right;color:#16a34a;">{fmt(sig.take_profit)} ({_signed_pct(sig.entry_price, sig.take_profit)})</td></tr>
+          <tr><td style="color:#6b7280;padding:3px 0;">Broke 20-day high</td><td style="text-align:right;">{fmt(sig.donchian_high)}</td></tr>
+          <tr><td style="color:#6b7280;padding:3px 0;">ADX / 200-SMA</td><td style="text-align:right;">{sig.adx:.1f} / {fmt(sig.sma200)}</td></tr>
+        </table>
+      </td></tr>
+    </table>"""
+
+
+def send_breakout_email(
+    signals: list,
+    email_address: str,
+    email_password: str,
+    log_path: Path,
+) -> bool:
+    """Send the daily-breakout HTML alert email.
+
+    Args:
+        signals: List of ``BreakoutSignal`` (caller gated for non-empty).
+        email_address: Gmail sender / recipient.
+        email_password: Gmail App Password.
+        log_path: Where to append SMTP error lines.
+
+    Returns:
+        True on success, False otherwise.
+    """
+    if not signals:
+        return False
+    count = len(signals)
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    subject = f"🚀 Daily Breakout Signals — {today} ({count} found)"
+    cards = "\n".join(_breakout_card_html(s) for s in signals)
+    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="background:#f3f4f6;margin:0;padding:24px;font-family:Arial,Helvetica,sans-serif;">
+  <table cellpadding="0" cellspacing="0" border="0" style="max-width:680px;margin:0 auto;"><tr><td>
+    <h1 style="color:#111827;font-size:22px;margin:0 0 6px;">🚀 Daily breakout signals</h1>
+    <p style="color:#6b7280;font-size:14px;margin:0 0 24px;">{today} UTC · {count} validated long breakout(s)</p>
+    {cards}
+    <p style="color:#9ca3af;font-size:12px;text-align:center;margin-top:20px;">
+      Validated edge (OOS + walk-forward). Daily timeframe only. Not financial advice.</p>
+  </td></tr></table></body></html>"""
+    return _send_html_email(subject, html, email_address, email_password, log_path)

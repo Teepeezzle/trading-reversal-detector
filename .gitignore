@@ -23,6 +23,9 @@ htmlcov/
 # Runtime log output (the directory itself is kept via .gitkeep)
 logs/*.log
 
+# Backtest generated artifacts (keep the .py scripts, drop CSV/log outputs)
+backtest/results/
+
 # Local config overrides
 config/config.local.yaml
 .env

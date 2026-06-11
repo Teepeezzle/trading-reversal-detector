@@ -100,6 +100,51 @@ def _within_session(session: str, now: Optional[datetime] = None) -> bool:
 # Minimum bars of history required before any signal can be generated.
 MIN_HISTORY_CANDLES = 50
 
+# Significance ranking used to pick the survivor when several coincident levels
+# fire the same signal. A yearly extreme is more meaningful than a daily one.
+LEVEL_PRIORITY = {"Yearly": 4, "Monthly": 3, "Weekly": 2, "Daily": 1}
+
+
+def _dedupe_coincident(
+    signals: List["ReversalSignal"], tol_pct: float
+) -> List["ReversalSignal"]:
+    """Collapse signals that fire at effectively the same level + direction.
+
+    When the Daily / Weekly / Monthly / Yearly levels coincide (within
+    ``tol_pct`` of each other), the detector otherwise emits one identical
+    signal per level — which live means several duplicate emails for a single
+    trade and, if each is taken, a multiplied position. This keeps only the
+    highest-priority (then highest-confidence) signal in each price cluster.
+
+    Args:
+        signals: Raw signals for one scan.
+        tol_pct: Fractional price window within which two same-direction levels
+            are treated as the same level (0.0015 = 0.15%).
+
+    Returns:
+        The de-duplicated list, preserving original ordering of survivors.
+    """
+    if len(signals) <= 1:
+        return signals
+    ranked = sorted(
+        signals,
+        key=lambda s: (
+            LEVEL_PRIORITY.get(s.level_type, 0),
+            s.confidence_score,
+        ),
+        reverse=True,
+    )
+    kept: List["ReversalSignal"] = []
+    for s in ranked:
+        clash = any(
+            k.direction == s.direction
+            and abs(k.level_price - s.level_price) <= tol_pct * max(abs(s.level_price), 1e-9)
+            for k in kept
+        )
+        if not clash:
+            kept.append(s)
+    return kept
+
 
 def _find_swing_lows(series: pd.Series, lookback: int = 5) -> List[int]:
     """Return positional indices of local minima in ``series``.
@@ -250,6 +295,11 @@ def _attempt_signal_for_level(
     interval: str,
     session: str,
     volume_multiplier: float,
+    max_closeback_atr: Optional[float] = None,
+    require_true_pierce: bool = False,
+    min_efficiency_ratio: Optional[float] = None,
+    volume_required: bool = False,
+    macro_trend: Optional[int] = None,
 ) -> Optional[ReversalSignal]:
     """Evaluate all four conditions for one (level, direction) combination.
 
@@ -270,6 +320,17 @@ def _attempt_signal_for_level(
         session: Session label being evaluated (stamped onto the signal).
         volume_multiplier: Minimum ``Volume / VolumeMA`` to pass the volume
             condition. ``1.0`` for daily, ``1.5`` for intraday.
+        max_closeback_atr: When set, the rejection close must be *near* the
+            level — within ``max_closeback_atr × ATR`` of it. Rejects bars that
+            already ran far back inside (a stale level), which the original
+            one-sided ``close_back`` test let through.
+        require_true_pierce: When True, the previous bar's extreme must have
+            actually traded *through* the level (``prev_low < level`` for LONG),
+            not merely come within tolerance from the inside. Closes the
+            "vacuous touch" hole.
+        min_efficiency_ratio: When set, the Kaufman efficiency ratio over the
+            last 20 bars must be >= this value, filtering out range/chop where
+            counter-trend reversals fail.
 
     Returns:
         A populated ``ReversalSignal`` if all conditions pass, otherwise
@@ -284,6 +345,19 @@ def _attempt_signal_for_level(
     if not np.isfinite(atr_value) or atr_value <= 0:
         return None
 
+    # --- Macro-trend gate ----------------------------------------------------
+    # Reversal-at-extreme is a mean-reversion bet; fading a strong trend (e.g.
+    # shorting Gold's resistance through a +79% bull market) is the dominant
+    # loss source. When a daily macro trend is supplied, only permit reversals
+    # that are NOT against it: block SHORTs in an uptrend, LONGs in a downtrend.
+    # macro_trend == 0 (no dominant trend) leaves both directions enabled,
+    # which is exactly the range regime where the strategy works.
+    if macro_trend is not None:
+        if macro_trend > 0 and direction == "SHORT":
+            return None
+        if macro_trend < 0 and direction == "LONG":
+            return None
+
     prev = df.iloc[-2]
     curr = df.iloc[-1]
     prev_low = float(prev["Low"])
@@ -292,20 +366,47 @@ def _attempt_signal_for_level(
     curr_volume = float(curr["Volume"])
 
     # --- Condition 1 + 2 -----------------------------------------------------
-    # Condition 1 (touch): prev candle's extreme pierced the level, with up to
-    # ``tolerance_pct`` slack on the other side of the level (e.g. for LONG a
-    # low that lands 0.1% above support still counts as a touch).
+    # Condition 1 (touch): prev candle's extreme pierced the level. The legacy
+    # behaviour (``require_true_pierce=False``) is one-sided and accepts a bar
+    # that merely comes within ``tolerance_pct`` of the level from the inside,
+    # which is the "vacuous touch" defect. With ``require_true_pierce=True`` the
+    # wick must actually trade *through* the level.
+    # Condition 2 (close-back): the current close is back inside the level, and
+    # — when ``max_closeback_atr`` is set — still *near* it (a genuine rejection
+    # wick, not a level price already left far behind).
     if direction == "LONG":
-        touch = prev_low < level_price * (1.0 + tolerance_pct)
+        if require_true_pierce:
+            touch = prev_low < level_price
+        else:
+            touch = prev_low < level_price * (1.0 + tolerance_pct)
         close_back = curr_close > level_price
+        if max_closeback_atr is not None:
+            close_back = close_back and (curr_close - level_price) <= max_closeback_atr * atr_value
         extreme_price = prev_low
     else:
-        touch = prev_high > level_price * (1.0 - tolerance_pct)
+        if require_true_pierce:
+            touch = prev_high > level_price
+        else:
+            touch = prev_high > level_price * (1.0 - tolerance_pct)
         close_back = curr_close < level_price
+        if max_closeback_atr is not None:
+            close_back = close_back and (level_price - curr_close) <= max_closeback_atr * atr_value
         extreme_price = prev_high
 
     if not (touch and close_back):
         return None
+
+    # --- Optional regime gate ------------------------------------------------
+    # Counter-trend reversals bleed in chop. When a minimum efficiency ratio is
+    # configured, require directional conviction over the last 20 bars.
+    if min_efficiency_ratio is not None:
+        closes = df["Close"].to_numpy()
+        if len(closes) >= 21:
+            seg = closes[-21:]
+            path = float(np.abs(np.diff(seg)).sum())
+            er = abs(seg[-1] - seg[0]) / path if path > 0 else 0.0
+            if er < min_efficiency_ratio:
+                return None
 
     # --- Condition 3 ---------------------------------------------------------
     has_divergence, rsi_gap = _check_rsi_divergence(
@@ -322,8 +423,13 @@ def _attempt_signal_for_level(
         if curr_volume <= threshold:
             return None
         volume_ratio = curr_volume / volume_ma_value
+    elif volume_required:
+        # Zero/missing volume (e.g. the Dollar Index, FX spot on yfinance):
+        # the conviction filter cannot be evaluated, so reject rather than
+        # soft-pass. This is what floods DXY with low-quality signals.
+        return None
     else:
-        volume_ratio = 1.0  # treat as soft-pass for zero-volume instruments
+        volume_ratio = 1.0  # legacy soft-pass for zero-volume instruments
 
     # --- Scoring + reason ----------------------------------------------------
     close_back_pct = abs(curr_close - level_price) / level_price * 100.0
@@ -378,6 +484,13 @@ def detect_reversals(
     swing_lookback: int = 5,
     interval: str = "1d",
     session_filter: str = "all",
+    max_closeback_atr: Optional[float] = None,
+    require_true_pierce: bool = False,
+    min_efficiency_ratio: Optional[float] = None,
+    volume_required: bool = False,
+    dedupe_levels: bool = False,
+    dedupe_tol_pct: float = 0.0015,
+    macro_trend: Optional[int] = None,
 ) -> List[ReversalSignal]:
     """Scan all level / direction combinations and return raw signals.
 
@@ -451,10 +564,18 @@ def detect_reversals(
                 interval=interval,
                 session=session_filter,
                 volume_multiplier=volume_multiplier,
+                max_closeback_atr=max_closeback_atr,
+                require_true_pierce=require_true_pierce,
+                min_efficiency_ratio=min_efficiency_ratio,
+                volume_required=volume_required,
+                macro_trend=macro_trend,
             )
         except Exception:  # noqa: BLE001 - never let one level kill the scan
             sig = None
         if sig is not None:
             signals.append(sig)
+
+    if dedupe_levels:
+        signals = _dedupe_coincident(signals, dedupe_tol_pct)
 
     return signals

@@ -1,7 +1,8 @@
-"""Render :class:`ReversalSignal` instances as fixed-format alert blocks."""
+"""Render signal dataclasses as fixed-format alert blocks."""
 
 from __future__ import annotations
 
+from .breakout_detector import BreakoutSignal
 from .reversal_detector import ReversalSignal
 
 SEPARATOR = "═══════════════════════════════════════"
@@ -161,3 +162,48 @@ def format_signals(signals: list[ReversalSignal]) -> str:
     if not signals:
         return ""
     return "\n\n".join(format_signal(s) for s in signals)
+
+
+def format_breakout_signal(
+    signal: BreakoutSignal, position_units: float, risk_amount: float
+) -> str:
+    """Render a :class:`BreakoutSignal` as a fixed-width alert block.
+
+    Args:
+        signal: The breakout signal.
+        position_units: Units to trade for the configured per-trade risk.
+        risk_amount: Dollar amount risked on the trade.
+
+    Returns:
+        A multi-line alert string.
+    """
+    tk = signal.ticker
+    entry = signal.entry_price
+    sl = signal.stop_loss
+    tp = signal.take_profit
+
+    sl_str = (
+        f"{_format_price(sl, tk)}  "
+        f"({_signed_pct(entry, sl)} | {_signed_dollars(entry, sl, tk)})"
+    )
+    tp_str = (
+        f"{_format_price(tp, tk)}  "
+        f"({_signed_pct(entry, tp)} | {_signed_dollars(entry, tp, tk)})"
+    )
+
+    lines = [
+        SEPARATOR,
+        "🚀 DAILY BREAKOUT SIGNAL (validated edge)",
+        SEPARATOR,
+        f"Asset:        {signal.ticker_display_name} ({tk})",
+        f"Direction:    {signal.direction} 📈",
+        f"Entry:        {_format_price(entry, tk)}  (close > 20-day high {_format_price(signal.donchian_high, tk)})",
+        f"Stop Loss:    {sl_str}",
+        f"Take Profit:  {tp_str}",
+        f"Risk:Reward:  1 : 2  (SL 1.5×ATR, TP 3.0×ATR)",
+        f"Position:     {position_units:,.4f} units  (risking ${risk_amount:,.2f})",
+        f"Regime:       ADX {signal.adx:.1f} (<20 breakout)  ·  above 200-SMA {_format_price(signal.sma200, tk)}",
+        f"Timestamp:    {signal.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC')}",
+        SEPARATOR,
+    ]
+    return "\n".join(lines)

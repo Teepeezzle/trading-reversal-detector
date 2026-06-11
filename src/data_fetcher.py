@@ -220,6 +220,20 @@ class DataFetcher:
             self._log_error(ticker, "4h", "4h frame empty after resampling")
             return None
 
+        # REPAINT FIX: the cron fires mid-bucket (07:00/11:00/15:00/19:00 UTC),
+        # so the final 4h bucket is almost always still forming. Acting on it is
+        # lookahead — its OHLC changes before the candle truly closes. Drop the
+        # last bucket unless the most recent 1h bar is its closing hour, so the
+        # detector only ever sees COMPLETED 4h candles.
+        last_bucket_start = resampled.index[-1]
+        bucket_end = last_bucket_start + pd.Timedelta(RESAMPLE_4H_RULE)
+        last_hour_start = hourly.index[-1]
+        if last_hour_start < bucket_end - pd.Timedelta(hours=1):
+            resampled = resampled.iloc[:-1]
+        if resampled.empty:
+            self._log_error(ticker, "4h", "no completed 4h bar available yet")
+            return None
+
         return resampled
 
     def _log_error(self, ticker: str, interval: str, message: str) -> None:
