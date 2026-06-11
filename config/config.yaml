@@ -12,21 +12,65 @@ risk_per_trade_pct: 2.0
 breakout:
   account_balance: 10000
   risk_per_trade_pct: 1.0          # validated at 1%; scale only after paper-trading
-  max_concurrent_positions: 4
+  max_concurrent_positions: 6
+  # 18-market basket — each individually validated positive (expR >= 0.10) on
+  # full daily history (see backtest/expand_validate.py). Dropped candidates
+  # that failed: XRP, USD/JPY, AUD/USD, USD/CAD, Russell2000, and zero-edge
+  # EUR/USD, S&P500, Corn.
   basket:
     - "BTC-USD"
     - "ETH-USD"
+    - "SOL-USD"
+    - "BNB-USD"
+    - "LTC-USD"
+    - "GBPUSD=X"
     - "GC=F"
     - "SI=F"
+    - "PL=F"
+    - "HG=F"
     - "CL=F"
+    - "BZ=F"
+    - "NG=F"
+    - "RB=F"
     - "NQ=F"
+    - "YM=F"
+    - "ZW=F"
+    - "ZS=F"
   basket_names:
     "BTC-USD": "Bitcoin"
     "ETH-USD": "Ethereum"
+    "SOL-USD": "Solana"
+    "BNB-USD": "BNB"
+    "LTC-USD": "Litecoin"
+    "GBPUSD=X": "GBP/USD"
     "GC=F": "Gold"
     "SI=F": "Silver"
+    "PL=F": "Platinum"
+    "HG=F": "Copper"
     "CL=F": "WTI Crude Oil"
+    "BZ=F": "Brent Crude Oil"
+    "NG=F": "Natural Gas"
+    "RB=F": "Gasoline"
     "NQ=F": "Nasdaq 100"
+    "YM=F": "Dow Jones"
+    "ZW=F": "Wheat"
+    "ZS=F": "Soybeans"
+
+# ───────────────────────────────────────────────────────────────────────
+# OVERNIGHT METALS DRIFT (separate short-hold edge — long Gold & Silver at the
+# daily close, exit at the next open). Documented "night effect"; validated
+# net-of-cost and out-of-sample (see backtest/expand_validate.py). Only Gold
+# and Silver qualified — Platinum/Copper were negative. Used by overnight_scan.py.
+# ───────────────────────────────────────────────────────────────────────
+overnight:
+  account_balance: 10000
+  risk_per_trade_pct: 1.0
+  markets:
+    - "GC=F"
+    - "SI=F"
+  market_names:
+    "GC=F": "Gold"
+    "SI=F": "Silver"
 
 max_daily_loss_pct: 6.0
 max_concurrent_positions: 8

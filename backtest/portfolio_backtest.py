@@ -30,14 +30,18 @@ import yfinance as yf
 
 OUT = Path(__file__).resolve().parent.parent / "backtest" / "results"
 
-# Basket: crypto, metals, energy, an index, plus FX major (liquid, daily)
+# Validated 18-market basket (each individually positive, expR >= 0.10, on full
+# daily history — see expand_validate.py). Generic 2-bps slippage per side.
 BASKET = {
-    "BTC-USD": ("Bitcoin", 0.01),
-    "ETH-USD": ("Ethereum", 0.01),
-    "GC=F": ("Gold", 0.10),
-    "SI=F": ("Silver", 0.005),
-    "CL=F": ("WTI Oil", 0.01),
-    "NQ=F": ("Nasdaq100", 0.25),
+    "BTC-USD": ("Bitcoin", 0.01), "ETH-USD": ("Ethereum", 0.01),
+    "SOL-USD": ("Solana", 0.001), "BNB-USD": ("BNB", 0.01),
+    "LTC-USD": ("Litecoin", 0.01), "GBPUSD=X": ("GBP/USD", 0.00001),
+    "GC=F": ("Gold", 0.10), "SI=F": ("Silver", 0.005),
+    "PL=F": ("Platinum", 0.10), "HG=F": ("Copper", 0.0005),
+    "CL=F": ("WTI Oil", 0.01), "BZ=F": ("Brent", 0.01),
+    "NG=F": ("NatGas", 0.001), "RB=F": ("Gasoline", 0.0001),
+    "NQ=F": ("Nasdaq100", 0.25), "YM=F": ("DowJones", 1.0),
+    "ZW=F": ("Wheat", 0.25), "ZS=F": ("Soybeans", 0.25),
 }
 
 START_EQUITY = 10_000.0
@@ -45,7 +49,7 @@ RISK_PCT = 1.0
 SL_MULT, TP_MULT = 1.5, 3.0
 ADX_RANGING = 20.0
 DONCH = 20
-MAX_CONCURRENT = 4
+MAX_CONCURRENT = 6
 COMMISSION = 0.0005
 SLIP_TICKS = 2
 MAX_HOLD = 60

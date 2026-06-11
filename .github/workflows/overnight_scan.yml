@@ -1,0 +1,45 @@
+name: Overnight Metals Scan (validated drift)
+
+# Long Gold & Silver at the close, exit at the next open. Runs near the COMEX
+# settlement window (20:00 UTC) on weekdays so you can act before the close.
+on:
+  schedule:
+    - cron: "0 20 * * 1-5"
+  workflow_dispatch:
+
+jobs:
+  overnight-scan:
+    name: Emit overnight long-metals signals
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run overnight metals scan and email
+        env:
+          EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          PYTHONIOENCODING: "utf-8"
+        run: python overnight_scan.py --email
+
+      - name: Upload run logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: overnight-logs-${{ github.run_id }}
+          path: logs/
+          if-no-files-found: ignore
+          retention-days: 14
