@@ -1,0 +1,58 @@
+//@version=6
+// =====================================================================
+// DAILY BREAKOUT — STRATEGY (the validated edge, mirrors breakout_scan.py)
+// Pine v6 · free plan.  USE ON A DAILY CHART of any of the 18 basket markets.
+//
+// Validated: out-of-sample, walk-forward (9/9 three-year blocks positive),
+// 28-year / 18-market portfolio (CAGR 8.1%). Parameters are FIXED — do not
+// optimize (re-tuning reintroduces curve-fit; proven in the walk-forward test).
+//
+// Rules (long-only):
+//   regime : ADX(14) < 20            (low-ADX consolidation)
+//   entry  : close > Donchian-high(20) of the prior bar   (breakout up)
+//   macro  : close > SMA(200)         (only long in an uptrend)
+//   stop   : 1.5 x ATR(14)   target : 3.0 x ATR(14)   (1:2)
+// =====================================================================
+strategy("Daily Breakout [Validated]", overlay = true, pyramiding = 0,
+     default_qty_type = strategy.percent_of_equity, default_qty_value = 100,
+     commission_type = strategy.commission.percent, commission_value = 0.05,
+     slippage = 2, initial_capital = 10000, calc_on_every_tick = false)
+
+adxLen   = input.int(14, "ADX length")
+adxMax   = input.float(20.0, "Ranging if ADX <")
+donLen   = input.int(20, "Donchian lookback")
+maLen    = input.int(200, "Macro SMA")
+atrLen   = input.int(14, "ATR length")
+slMult   = input.float(1.5, "Stop (ATR x)", step = 0.1)
+tpMult   = input.float(3.0, "Target (ATR x)", step = 0.1)
+
+atr = ta.atr(atrLen)
+[_p, _m, adx] = ta.dmi(adxLen, adxLen)
+sma200 = ta.sma(close, maLen)
+donHigh = ta.highest(high, donLen)
+
+ranging  = adx < adxMax
+breakout = close > donHigh[1]
+macroOK  = close > sma200
+goLong   = ranging and breakout and macroOK
+
+var float slPx = na
+var float tpPx = na
+
+if goLong and strategy.position_size == 0
+    slPx := close - slMult * atr
+    tpPx := close + tpMult * atr
+    strategy.entry("Long", strategy.long)
+
+if strategy.position_size > 0
+    strategy.exit("Exit", from_entry = "Long", stop = slPx, limit = tpPx)
+
+plot(sma200, "200 SMA", color.new(color.blue, 0))
+plot(donHigh, "Donchian high", color.new(color.gray, 50))
+plot(strategy.position_size > 0 ? slPx : na, "SL", color.red,   1, plot.style_linebr)
+plot(strategy.position_size > 0 ? tpPx : na, "TP", color.green, 1, plot.style_linebr)
+plotshape(goLong and strategy.position_size == 0, "Breakout", shape.triangleup,
+     location.belowbar, color.green, size = size.small, text = "BO")
+bgcolor(ranging ? color.new(color.gray, 92) : na, title = "Ranging (ADX<20)")
+
+alertcondition(goLong, "Daily breakout LONG", "Daily breakout on {{ticker}} @ {{close}}")

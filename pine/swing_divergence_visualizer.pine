@@ -1,68 +1,57 @@
 //@version=6
 // =====================================================================
-// Swing + MACD-Divergence VISUALIZER  (context tool — NOT a signal)
-// Pine v6 · free plan.
+// Swing + MACD-Divergence VISUALIZER (context tool — NOT a signal)
+// Pine v6 · free plan.  v2: earlier (configurable right-confirmation).
 //
-// HONEST LABEL — read this:
-//   A 10-year daily backtest on BTC, Gold and Oil found NO reliable edge for
-//   "higher-high + MACD bearish divergence -> price falls" (nor its bullish
-//   mirror). Hit rates were not statistically significant, the AVERAGE forward
-//   return after a bearish signal was POSITIVE (you'd be right more often but
-//   lose money), and requiring 2-4 repeated swings made it WORSE. This script
-//   therefore draws NO buy/sell arrows. It only marks structure so you can use
-//   divergence as CONTEXT/confluence alongside your level map — never as a
-//   standalone trigger.
+// HONEST LABEL:
+//   A 1h backtest on BTC/Gold/Oil of fading divergence was NEGATIVE; this is a
+//   CONTEXT tool, not a profit signal. No auto buy/sell.
+//
+// EARLIER CONFIRMATION (your request): a pivot needs `rightBars` bars to its
+// RIGHT to confirm. Default is now 2 (was 5), so divergence draws ~3 bars
+// sooner. THE TRADE-OFF: fewer right-bars = less reliable pivots (more get
+// invalidated by the next move). You CANNOT set rightBars = 0 without
+// repainting — a swing high is unknown until price fails to exceed it. Use
+// rightBars 2-3 for "early but tentative", 5 for "slower but firmer".
 // =====================================================================
-indicator("Swing + MACD Divergence [Visualizer]", overlay = true,
+indicator("Swing + MACD Divergence v2 [Visualizer]", overlay = true,
      max_lines_count = 500, max_labels_count = 500)
 
-// ---------------- Inputs ----------------
-pivLen   = input.int(5,  "Pivot length", minval = 2)
-fastLen  = input.int(12, "MACD fast")
-slowLen  = input.int(26, "MACD slow")
-sigLen   = input.int(9,  "MACD signal")
-showDiv  = input.bool(true, "Draw divergence lines")
-showDots = input.bool(true, "Mark all swing pivots")
-showNote = input.bool(true, "Show backtest-verdict note")
+leftBars  = input.int(5, "Pivot LEFT bars (structure)",  minval = 2)
+rightBars = input.int(2, "Pivot RIGHT bars (confirmation lag)", minval = 1, maxval = 5,
+     tooltip = "Lower = earlier/more predictive but less reliable. 0 is impossible without repainting.")
+fastLen   = input.int(12, "MACD fast")
+slowLen   = input.int(26, "MACD slow")
+sigLen    = input.int(9,  "MACD signal")
+showDiv   = input.bool(true, "Draw divergence lines")
+showDots  = input.bool(true, "Mark all swing pivots")
+showNote  = input.bool(true, "Show backtest-verdict note")
 
-// ---------------- MACD ----------------
-[macdLine, signalLine, hist] = ta.macd(close, fastLen, slowLen, sigLen)
+[macdLine, _s, _h] = ta.macd(close, fastLen, slowLen, sigLen)
 
-// ---------------- Pivots (confirmed, non-repainting) ----------------
-ph = ta.pivothigh(high, pivLen, pivLen)
-pl = ta.pivotlow(low,  pivLen, pivLen)
+ph = ta.pivothigh(high, leftBars, rightBars)
+pl = ta.pivotlow(low,  leftBars, rightBars)
 
-// Plain swing dots on the actual pivot bar (offset back by pivLen)
 plotshape(showDots and not na(ph), title = "Swing High", style = shape.circle,
      location = location.abovebar, color = color.new(color.red, 40),
-     size = size.tiny, offset = -pivLen)
+     size = size.tiny, offset = -rightBars)
 plotshape(showDots and not na(pl), title = "Swing Low", style = shape.circle,
      location = location.belowbar, color = color.new(color.green, 40),
-     size = size.tiny, offset = -pivLen)
+     size = size.tiny, offset = -rightBars)
 
-// ---------------- Track last pivot high / low + MACD + run length ----------------
-var float lastPHprice = na
-var float lastPHmacd  = na
-var int   lastPHbar   = na
-var int   hhRun       = 0
+var float lastPHprice = na, var float lastPHmacd = na, var int lastPHbar = na, var int hhRun = 0
+var float lastPLprice = na, var float lastPLmacd = na, var int lastPLbar = na, var int llRun = 0
 
-var float lastPLprice = na
-var float lastPLmacd  = na
-var int   lastPLbar   = na
-var int   llRun       = 0
-
-// Pivot HIGH event
 if not na(ph)
     phPrice = ph
-    phMacd  = macdLine[pivLen]
-    phBar   = bar_index - pivLen
+    phMacd  = macdLine[rightBars]
+    phBar   = bar_index - rightBars
     if not na(lastPHprice)
         higherHigh = phPrice > lastPHprice
         bearDiv    = higherHigh and phMacd < lastPHmacd
         hhRun     := higherHigh ? hhRun + 1 : 1
         if bearDiv and showDiv
-            line.new(lastPHbar, lastPHprice, phBar, phPrice,
-                 color = color.new(color.red, 0), width = 2)
+            line.new(lastPHbar, lastPHprice, phBar, phPrice, color = color.new(color.red, 0), width = 2)
             label.new(phBar, phPrice, "Bear Div\nHH run: " + str.tostring(hhRun),
                  style = label.style_label_down, color = color.new(color.red, 20),
                  textcolor = color.white, size = size.small)
@@ -72,18 +61,16 @@ if not na(ph)
     lastPHmacd  := phMacd
     lastPHbar   := phBar
 
-// Pivot LOW event
 if not na(pl)
     plPrice = pl
-    plMacd  = macdLine[pivLen]
-    plBar   = bar_index - pivLen
+    plMacd  = macdLine[rightBars]
+    plBar   = bar_index - rightBars
     if not na(lastPLprice)
         lowerLow = plPrice < lastPLprice
         bullDiv  = lowerLow and plMacd > lastPLmacd
         llRun   := lowerLow ? llRun + 1 : 1
         if bullDiv and showDiv
-            line.new(lastPLbar, lastPLprice, plBar, plPrice,
-                 color = color.new(color.green, 0), width = 2)
+            line.new(lastPLbar, lastPLprice, plBar, plPrice, color = color.new(color.green, 0), width = 2)
             label.new(plBar, plPrice, "Bull Div\nLL run: " + str.tostring(llRun),
                  style = label.style_label_up, color = color.new(color.green, 20),
                  textcolor = color.white, size = size.small)
@@ -93,12 +80,14 @@ if not na(pl)
     lastPLmacd  := plMacd
     lastPLbar   := plBar
 
-// ---------------- On-chart verdict note ----------------
 if showNote and barstate.islast
-    var table tb = table.new(position.top_right, 1, 1, border_width = 1)
+    var table tb = table.new(position.bottom_right, 1, 1, border_width = 1)
     table.cell(tb, 0, 0,
-         "VISUALIZER — not a signal.\n10y test (BTC/Gold/Oil): divergence had\n" +
-         "NO reliable edge. Avg return after a\n'bearish' signal was POSITIVE.\n" +
-         "Use as context with your levels only.",
+         "CONTEXT ONLY — not a signal.\nConfirms " + str.tostring(rightBars) +
+         " bars after the pivot. Lower\n= earlier but less reliable; 0 is\n" +
+         "impossible without repainting.",
          text_color = color.white, bgcolor = color.new(color.maroon, 10),
          text_size = size.small, text_halign = text.align_left)
+
+alertcondition(not na(ph), "Swing high confirmed", "Swing high on {{ticker}}")
+alertcondition(not na(pl), "Swing low confirmed", "Swing low on {{ticker}}")

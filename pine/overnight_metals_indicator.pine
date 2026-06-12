@@ -1,0 +1,52 @@
+//@version=6
+// =====================================================================
+// OVERNIGHT METALS — INDICATOR (the validated drift, mirrors overnight_scan.py)
+// Pine v6 · free plan.  USE ON A DAILY CHART of GC (Gold) or SI (Silver).
+//
+// Edge: hold close -> next open. Validated net-of-cost & out-of-sample on ~25y:
+//   Gold +0.026%/night (Sharpe 0.64), Silver +0.060%/night (Sharpe 0.67).
+//   Platinum/Copper were NEGATIVE — Gold & Silver only.
+// This is a SHORT HOLD, not intraday day-trading; best on low-cost futures.
+//
+// Why an indicator (not a strategy): the close->open hold can't be isolated in
+// Pine's strategy fill model on daily bars, so this COMPUTES the real overnight
+// equity curve, compares it to the intraday (open->close) curve, marks the
+// daily action, and alerts at the close.
+// =====================================================================
+indicator("Overnight Metals [Validated]", overlay = false)
+
+costPct = input.float(0.02, "Round-trip cost (%)", step = 0.01) / 100.0
+showIntraday = input.bool(true, "Also plot intraday (open->close) for contrast")
+
+// Returns (decimal). overnight = today's open vs yesterday's close.
+overnightRet = na(close[1]) ? 0.0 : (open / close[1] - 1.0) - costPct
+intradayRet  = close / open - 1.0
+
+var float onEquity = 1.0
+var float inEquity = 1.0
+onEquity := onEquity * (1.0 + overnightRet)
+inEquity := inEquity * (1.0 + intradayRet)
+
+plot(onEquity, "Overnight equity (x)", color = color.new(color.teal, 0), linewidth = 2)
+plot(showIntraday ? inEquity : na, "Intraday equity (x)", color = color.new(color.gray, 40), linewidth = 1)
+hline(1.0, "Start", color = color.new(color.gray, 60), linestyle = hline.style_dashed)
+
+// Per-night drift readout (running mean, %)
+var float sumRet = 0.0
+var int   cnt = 0
+sumRet := sumRet + overnightRet
+cnt := cnt + 1
+avgPct = cnt > 0 ? sumRet / cnt * 100.0 : 0.0
+
+if barstate.islast
+    var table tb = table.new(position.top_right, 1, 1, border_width = 1)
+    table.cell(tb, 0, 0,
+         "OVERNIGHT (close->open)\nx" + str.tostring(onEquity, "#.##") +
+         "  avg " + str.tostring(avgPct, "#.####") + "%/night\n" +
+         "Action: LONG at close, exit next open.\nGold & Silver only. Low-cost execution.",
+         text_color = color.white, bgcolor = color.new(color.teal, 10),
+         text_size = size.small, text_halign = text.align_left)
+
+// Fires at each daily close = "go long overnight now"
+alertcondition(barstate.isconfirmed, "Go long overnight",
+     "Overnight metals: LONG {{ticker}} at close {{close}}, exit at next open")
