@@ -70,16 +70,16 @@ showDiv   = input.bool(true, "Draw divergence lines", group = g5)
 showNote  = input.bool(true, "Show on-chart legend",  group = g5)
 
 // ---------------- Span bucket resolution ----------------
-spanLo = spanBucket == "Under 10 bars" ? 0 :
-   spanBucket == "10-20 bars" ? 10 :
-   spanBucket == "10-50 bars" ? 10 :
-   spanBucket == "Above 50 bars" ? 51 :
-   spanBucket == "Custom" ? customLo : 0
-spanHi = spanBucket == "Under 10 bars" ? 9 :
-   spanBucket == "10-20 bars" ? 20 :
-   spanBucket == "10-50 bars" ? 50 :
-   spanBucket == "Above 50 bars" ? 100000 :
-   spanBucket == "Custom" ? customHi : 100000
+// Pine v6 is fussy about multi-line ternaries — keep the resolution as a
+// single-line expression per bucket, using a helper to pick lo/hi.
+spanBucketLo(b) =>
+    b == "Under 10 bars" ? 0 : b == "10-20 bars" ? 10 : b == "10-50 bars" ? 10 : b == "Above 50 bars" ? 51 : b == "Custom" ? customLo : 0
+
+spanBucketHi(b) =>
+    b == "Under 10 bars" ? 9 : b == "10-20 bars" ? 20 : b == "10-50 bars" ? 50 : b == "Above 50 bars" ? 100000 : b == "Custom" ? customHi : 100000
+
+spanLo = spanBucketLo(spanBucket)
+spanHi = spanBucketHi(spanBucket)
 
 inSpan(s) => s >= spanLo and s <= spanHi
 
@@ -198,13 +198,10 @@ bgcolor(tintBg and inDowntrend ? color.new(color.red,   94) : na,
 
 // ---------------- On-chart legend ----------------
 if showNote and barstate.islast
-    regime   = inUptrend   ? "UPTREND" :
-               inDowntrend ? "DOWNTREND" : "FLAT"
-    refLabel = useDaily ? "DAILY 200-SMA (validated reference)"
-                        : "chart-native " + str.tostring(trendLen) + "-SMA"
-    spanTxt  = "Span filter: " + spanBucket +
-               (spanBucket == "Custom" ?
-                  "  (" + str.tostring(customLo) + "-" + str.tostring(customHi) + ")" : "")
+    regime   = inUptrend ? "UPTREND" : inDowntrend ? "DOWNTREND" : "FLAT"
+    refLabel = useDaily ? "DAILY 200-SMA (validated reference)" : "chart-native " + str.tostring(trendLen) + "-SMA"
+    customRange = "  (" + str.tostring(customLo) + "-" + str.tostring(customHi) + ")"
+    spanTxt  = "Span filter: " + spanBucket + (spanBucket == "Custom" ? customRange : "")
     var table tb = table.new(position.bottom_right, 1, 1, border_width = 1)
     table.cell(tb, 0, 0,
          "VISUALIZER — context only.\nRegime: " + regime + "  (vs " + refLabel + ")\n" +
