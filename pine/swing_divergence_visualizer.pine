@@ -1,23 +1,21 @@
 //@version=6
 // =====================================================================
-// Swing + MACD-Divergence VISUALIZER  v3 — with TREND ALIGNMENT
+// Swing + MACD-Divergence VISUALIZER  v4 — DAILY-anchored trend alignment
 // Pine v6 · free plan.  Context tool, NOT a profit signal.
 //
-// EVIDENCE-BASED LABELLING (from this project's 15+ tests):
-//   * Plain divergence had NO tradeable edge.
-//   * Bar-span and volume-contraction filters did NOT rescue it.
-//   * The ONLY factor with statistical robustness was TREND ALIGNMENT:
-//     - Bullish divergence ABOVE the daily-equivalent 200-SMA (with trend)  -> "✓ ALIGNED"
-//     - Bearish divergence BELOW the 200-SMA (with trend)                   -> "✓ ALIGNED"
-//     - Anything counter-trend                                              -> "✗ FIGHTING TREND"
-//   This is for CONTEXT — confluence with structure, not a standalone trigger.
+// EVIDENCE-BASED (from this project's 15+ tests):
+//   The only statistically robust factor was DIVERGENCE ALIGNED WITH THE
+//   MACRO (daily 200-SMA) TREND. The OOS pass used a DAILY 200-SMA reference.
+//   v4 pulls that daily SMA via request.security so the alignment signal
+//   is the same on any chart timeframe (D, 4H, 1H, 15m...). Optional
+//   fallback to the chart-native SMA for users who prefer it.
 //
-// EARLIER CONFIRMATION (your earlier request): a pivot needs `rightBars` bars
-// to the RIGHT to confirm. Default 2 (was 5) -> draws ~3 bars sooner.
-// Trade-off: fewer right-bars = less reliable pivots (more get invalidated).
-// 0 is impossible without repainting.
+// EARLIER CONFIRMATION (your earlier request): a pivot needs `rightBars`
+// bars to its RIGHT to confirm. Default 2 (was 5) -> draws ~3 bars sooner.
+// Trade-off: fewer right-bars = less reliable pivots. 0 is impossible
+// without repainting.
 // =====================================================================
-indicator("Swing + MACD Divergence v3 [+Trend Align]", overlay = true,
+indicator("Swing + MACD Divergence v4 [+Daily Trend Align]", overlay = true,
      max_lines_count = 500, max_labels_count = 500)
 
 // ---------------- Inputs ----------------
@@ -34,9 +32,16 @@ slowLen = input.int(26, "MACD slow",   group = g2)
 sigLen  = input.int(9,  "MACD signal", group = g2)
 
 g3 = "Trend alignment (the only robust factor in testing)"
+useDailyTrend = input.bool(true,
+     "Use DAILY 200-SMA on all timeframes (matches the OOS-validated test)",
+     group = g3,
+     tooltip = "When ON, the alignment lens is the daily 200-SMA pulled via " +
+               "request.security on any chart. When OFF, falls back to the " +
+               "200-SMA computed on the chart's native timeframe.")
 trendLen   = input.int(200, "Trend SMA length", minval = 50, group = g3)
 hideUnaligned = input.bool(false, "Hide counter-trend divergences",
-     group = g3, tooltip = "When ON, only divergences ALIGNED with the trend are drawn.")
+     group = g3,
+     tooltip = "When ON, only divergences ALIGNED with the trend are drawn.")
 tintBg     = input.bool(true, "Tint background by trend regime", group = g3)
 
 g4 = "Display"
@@ -46,9 +51,26 @@ showNote  = input.bool(true, "Show on-chart legend",  group = g4)
 
 // ---------------- Core series ----------------
 [macdLine, _s, _h] = ta.macd(close, fastLen, slowLen, sigLen)
-trendSMA = ta.sma(close, trendLen)
-inUptrend   = close > trendSMA
-inDowntrend = close < trendSMA
+
+// Native chart-timeframe SMA (fallback)
+nativeSMA = ta.sma(close, trendLen)
+
+// Daily SMA + daily close, pulled non-repainting (one-bar-old daily values,
+// + lookahead-on, is the standard non-repainting idiom).
+dailySMA   = request.security(syminfo.tickerid, "D",
+     ta.sma(close, trendLen)[1],
+     barmerge.gaps_off, barmerge.lookahead_on)
+dailyClose = request.security(syminfo.tickerid, "D",
+     close[1],
+     barmerge.gaps_off, barmerge.lookahead_on)
+
+// Pick the active trend reference per the toggle.
+useDaily = useDailyTrend and not na(dailySMA) and not na(dailyClose)
+trendRef    = useDaily ? dailySMA   : nativeSMA
+trendCmpPx  = useDaily ? dailyClose : close
+
+inUptrend   = not na(trendRef) and trendCmpPx > trendRef
+inDowntrend = not na(trendRef) and trendCmpPx < trendRef
 
 // ---------------- Pivots (non-repainting at the chosen rightBars) ----------------
 ph = ta.pivothigh(high, leftBars, rightBars)
@@ -75,7 +97,7 @@ if not na(ph)
         bearDiv    = higherHigh and phMacd < lastPHmacd
         hhRun     := higherHigh ? hhRun + 1 : 1
         if bearDiv and showDiv
-            // Trend test: a BEARISH divergence is ALIGNED only in a downtrend.
+            // BEARISH divergence is ALIGNED only in a (daily) downtrend.
             alignedBear = inDowntrend
             drawIt = alignedBear or (not hideUnaligned)
             if drawIt
@@ -105,7 +127,7 @@ if not na(pl)
         bullDiv  = lowerLow and plMacd > lastPLmacd
         llRun   := lowerLow ? llRun + 1 : 1
         if bullDiv and showDiv
-            // Trend test: a BULLISH divergence is ALIGNED only in an uptrend.
+            // BULLISH divergence is ALIGNED only in a (daily) uptrend.
             alignedBull = inUptrend
             drawIt = alignedBull or (not hideUnaligned)
             if drawIt
@@ -125,18 +147,20 @@ if not na(pl)
     lastPLmacd  := plMacd
     lastPLbar   := plBar
 
-// ---------------- Trend SMA + regime tint ----------------
-plot(trendSMA, "Trend SMA", color = color.new(color.blue, 0), linewidth = 1)
+// ---------------- Trend line + regime tint ----------------
+plot(trendRef, "Trend reference (D-SMA when toggle on)",
+     color = color.new(color.blue, 0), linewidth = 1)
 bgcolor(tintBg and inUptrend   ? color.new(color.green, 94) : na, title = "Uptrend regime")
 bgcolor(tintBg and inDowntrend ? color.new(color.red,   94) : na, title = "Downtrend regime")
 
 // ---------------- On-chart legend ----------------
 if showNote and barstate.islast
-    regime = inUptrend ? "UPTREND (above SMA)" :
-       inDowntrend ? "DOWNTREND (below SMA)" : "FLAT"
+    regime   = inUptrend ? "UPTREND" : inDowntrend ? "DOWNTREND" : "FLAT"
+    refLabel = useDaily ? "DAILY 200-SMA (validated reference)" :
+       "chart-native " + str.tostring(trendLen) + "-SMA"
     var table tb = table.new(position.bottom_right, 1, 1, border_width = 1)
     table.cell(tb, 0, 0,
-         "VISUALIZER — context only.\nRegime: " + regime + "\n" +
+         "VISUALIZER — context only.\nRegime: " + regime + "  (vs " + refLabel + ")\n" +
          "✓ ALIGNED = divergence WITH the trend  (the only robust factor).\n" +
          "✗ FIGHTING = divergence AGAINST the trend (statistically a loser).\n" +
          "Confirms " + str.tostring(rightBars) + " bars after pivot " +
@@ -145,7 +169,7 @@ if showNote and barstate.islast
          text_size = size.small, text_halign = text.align_left)
 
 // ---------------- Alerts (only meaningful ones) ----------------
-alertcondition(not na(ph) and inDowntrend, "Bearish div ALIGNED",
-     "Bearish divergence in downtrend on {{ticker}} @ {{close}}")
-alertcondition(not na(pl) and inUptrend,   "Bullish div ALIGNED",
-     "Bullish divergence in uptrend on {{ticker}} @ {{close}}")
+alertcondition(not na(ph) and inDowntrend, "Bearish div ALIGNED (D-trend)",
+     "Bearish divergence in daily downtrend on {{ticker}} @ {{close}}")
+alertcondition(not na(pl) and inUptrend,   "Bullish div ALIGNED (D-trend)",
+     "Bullish divergence in daily uptrend on {{ticker}} @ {{close}}")
