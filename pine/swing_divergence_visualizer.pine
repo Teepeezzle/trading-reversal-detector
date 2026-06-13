@@ -1,22 +1,25 @@
 //@version=6
 // =====================================================================
-// Swing + MACD-Divergence VISUALIZER  v4 — DAILY-anchored trend alignment
+// Swing + MACD-Divergence VISUALIZER  v5
+//   + DAILY-anchored trend alignment (v4 default)
+//   + configurable BAR-SPAN bucket display filter (new)
 // Pine v6 · free plan.  Context tool, NOT a profit signal.
 //
-// EVIDENCE-BASED (from this project's 15+ tests):
-//   The only statistically robust factor was DIVERGENCE ALIGNED WITH THE
-//   MACRO (daily 200-SMA) TREND. The OOS pass used a DAILY 200-SMA reference.
-//   v4 pulls that daily SMA via request.security so the alignment signal
-//   is the same on any chart timeframe (D, 4H, 1H, 15m...). Optional
-//   fallback to the chart-native SMA for users who prefer it.
+// EVIDENCE-BASED (this project's 18+ tests):
+//   * The only factor with any robustness is divergence ALIGNED with the
+//     macro (daily 200-SMA) TREND. Default uses that reference on any chart.
+//   * BAR-SPAN buckets (<10, 10-20, 10-50, etc) did NOT improve OOS reliability
+//     on 1H or 4H. Stacking span on trend-alignment made the scorecard WORSE.
+//     The span filter here is provided as a DISPLAY toggle for exploration -
+//     it is NOT a validated edge. The "All spans" default reflects this.
 //
-// EARLIER CONFIRMATION (your earlier request): a pivot needs `rightBars`
-// bars to its RIGHT to confirm. Default 2 (was 5) -> draws ~3 bars sooner.
+// EARLIER CONFIRMATION (your earlier request): a pivot needs `rightBars` bars
+// to its RIGHT to confirm. Default 2 (was 5) -> draws ~3 bars sooner.
 // Trade-off: fewer right-bars = less reliable pivots. 0 is impossible
 // without repainting.
 // =====================================================================
-indicator("Swing + MACD Divergence v4 [+Daily Trend Align]", overlay = true,
-     max_lines_count = 500, max_labels_count = 500)
+indicator("Swing + MACD Divergence v5 [+Daily Trend + Span Bucket]",
+     overlay = true, max_lines_count = 500, max_labels_count = 500)
 
 // ---------------- Inputs ----------------
 g1 = "Pivot detection"
@@ -33,7 +36,7 @@ sigLen  = input.int(9,  "MACD signal", group = g2)
 
 g3 = "Trend alignment (the only robust factor in testing)"
 useDailyTrend = input.bool(true,
-     "Use DAILY 200-SMA on all timeframes (matches the OOS-validated test)",
+     "Use DAILY 200-SMA on all timeframes (matches OOS-validated test)",
      group = g3,
      tooltip = "When ON, the alignment lens is the daily 200-SMA pulled via " +
                "request.security on any chart. When OFF, falls back to the " +
@@ -44,19 +47,46 @@ hideUnaligned = input.bool(false, "Hide counter-trend divergences",
      tooltip = "When ON, only divergences ALIGNED with the trend are drawn.")
 tintBg     = input.bool(true, "Tint background by trend regime", group = g3)
 
-g4 = "Display"
-showDots  = input.bool(true, "Mark all swing pivots", group = g4)
-showDiv   = input.bool(true, "Draw divergence lines", group = g4)
-showNote  = input.bool(true, "Show on-chart legend",  group = g4)
+g4 = "Bar-span bucket (DISPLAY filter — not a validated edge)"
+spanBucket = input.string("All spans",
+     "Show divergences whose pivot-to-pivot span is...",
+     options = ["All spans", "Under 10 bars", "10-20 bars", "10-50 bars",
+                "Above 50 bars", "Custom"],
+     group = g4,
+     tooltip = "Filters which divergences are DRAWN on the chart. Testing " +
+               "across 5 assets / 3 timeframes showed span filters do NOT " +
+               "produce a tradeable edge. This is exploration / decluttering, " +
+               "not a signal filter. Default = show all.")
+customLo = input.int(10, "Custom span MIN (used when 'Custom' selected)",
+     minval = 0, group = g4)
+customHi = input.int(50, "Custom span MAX (used when 'Custom' selected)",
+     minval = 1, group = g4)
+showSpanLabel = input.bool(true, "Annotate span (bars) on each divergence label",
+     group = g4)
+
+g5 = "Display"
+showDots  = input.bool(true, "Mark all swing pivots", group = g5)
+showDiv   = input.bool(true, "Draw divergence lines", group = g5)
+showNote  = input.bool(true, "Show on-chart legend",  group = g5)
+
+// ---------------- Span bucket resolution ----------------
+spanLo = spanBucket == "Under 10 bars" ? 0 :
+   spanBucket == "10-20 bars" ? 10 :
+   spanBucket == "10-50 bars" ? 10 :
+   spanBucket == "Above 50 bars" ? 51 :
+   spanBucket == "Custom" ? customLo : 0
+spanHi = spanBucket == "Under 10 bars" ? 9 :
+   spanBucket == "10-20 bars" ? 20 :
+   spanBucket == "10-50 bars" ? 50 :
+   spanBucket == "Above 50 bars" ? 100000 :
+   spanBucket == "Custom" ? customHi : 100000
+
+inSpan(s) => s >= spanLo and s <= spanHi
 
 // ---------------- Core series ----------------
 [macdLine, _s, _h] = ta.macd(close, fastLen, slowLen, sigLen)
 
-// Native chart-timeframe SMA (fallback)
 nativeSMA = ta.sma(close, trendLen)
-
-// Daily SMA + daily close, pulled non-repainting (one-bar-old daily values,
-// + lookahead-on, is the standard non-repainting idiom).
 dailySMA   = request.security(syminfo.tickerid, "D",
      ta.sma(close, trendLen)[1],
      barmerge.gaps_off, barmerge.lookahead_on)
@@ -64,10 +94,9 @@ dailyClose = request.security(syminfo.tickerid, "D",
      close[1],
      barmerge.gaps_off, barmerge.lookahead_on)
 
-// Pick the active trend reference per the toggle.
-useDaily = useDailyTrend and not na(dailySMA) and not na(dailyClose)
-trendRef    = useDaily ? dailySMA   : nativeSMA
-trendCmpPx  = useDaily ? dailyClose : close
+useDaily   = useDailyTrend and not na(dailySMA) and not na(dailyClose)
+trendRef   = useDaily ? dailySMA   : nativeSMA
+trendCmpPx = useDaily ? dailyClose : close
 
 inUptrend   = not na(trendRef) and trendCmpPx > trendRef
 inDowntrend = not na(trendRef) and trendCmpPx < trendRef
@@ -84,8 +113,10 @@ plotshape(showDots and not na(pl), title = "Swing Low", style = shape.circle,
      size = size.tiny, offset = -rightBars)
 
 // ---------------- Track most-recent pivot + run length ----------------
-var float lastPHprice = na, var float lastPHmacd = na, var int lastPHbar = na, var int hhRun = 0
-var float lastPLprice = na, var float lastPLmacd = na, var int lastPLbar = na, var int llRun = 0
+var float lastPHprice = na, var float lastPHmacd = na
+var int   lastPHbar   = na, var int   hhRun = 0
+var float lastPLprice = na, var float lastPLmacd = na
+var int   lastPLbar   = na, var int   llRun = 0
 
 // ===== Bearish divergence (price HH, MACD LH) =====
 if not na(ph)
@@ -96,19 +127,24 @@ if not na(ph)
         higherHigh = phPrice > lastPHprice
         bearDiv    = higherHigh and phMacd < lastPHmacd
         hhRun     := higherHigh ? hhRun + 1 : 1
-        if bearDiv and showDiv
-            // BEARISH divergence is ALIGNED only in a (daily) downtrend.
+        span       = phBar - lastPHbar
+        spanOK     = inSpan(span)
+        if bearDiv and showDiv and spanOK
             alignedBear = inDowntrend
             drawIt = alignedBear or (not hideUnaligned)
             if drawIt
-                lineCol = alignedBear ? color.new(color.red, 0) : color.new(color.red, 70)
+                lineCol = alignedBear ? color.new(color.red, 0)
+                                       : color.new(color.red, 70)
                 line.new(lastPHbar, lastPHprice, phBar, phPrice,
                      color = lineCol, width = alignedBear ? 2 : 1,
                      style = alignedBear ? line.style_solid : line.style_dotted)
-                tag = alignedBear ? "Bear Div  ✓ ALIGNED" : "Bear Div  ✗ vs uptrend"
-                bgc = alignedBear ? color.new(color.red, 10) : color.new(color.gray, 50)
+                tag = alignedBear ? "Bear Div  ✓ ALIGNED"
+                                  : "Bear Div  ✗ vs uptrend"
+                spanTxt = showSpanLabel ? "\nspan: " + str.tostring(span) + " bars" : ""
+                bgc = alignedBear ? color.new(color.red, 10)
+                                  : color.new(color.gray, 50)
                 label.new(phBar, phPrice,
-                     tag + "\nHH run: " + str.tostring(hhRun),
+                     tag + "\nHH run: " + str.tostring(hhRun) + spanTxt,
                      style = label.style_label_down, color = bgc,
                      textcolor = color.white, size = size.small)
     else
@@ -126,19 +162,24 @@ if not na(pl)
         lowerLow = plPrice < lastPLprice
         bullDiv  = lowerLow and plMacd > lastPLmacd
         llRun   := lowerLow ? llRun + 1 : 1
-        if bullDiv and showDiv
-            // BULLISH divergence is ALIGNED only in a (daily) uptrend.
+        span     = plBar - lastPLbar
+        spanOK   = inSpan(span)
+        if bullDiv and showDiv and spanOK
             alignedBull = inUptrend
             drawIt = alignedBull or (not hideUnaligned)
             if drawIt
-                lineCol = alignedBull ? color.new(color.green, 0) : color.new(color.green, 70)
+                lineCol = alignedBull ? color.new(color.green, 0)
+                                       : color.new(color.green, 70)
                 line.new(lastPLbar, lastPLprice, plBar, plPrice,
                      color = lineCol, width = alignedBull ? 2 : 1,
                      style = alignedBull ? line.style_solid : line.style_dotted)
-                tag = alignedBull ? "Bull Div  ✓ ALIGNED" : "Bull Div  ✗ vs downtrend"
-                bgc = alignedBull ? color.new(color.green, 10) : color.new(color.gray, 50)
+                tag = alignedBull ? "Bull Div  ✓ ALIGNED"
+                                  : "Bull Div  ✗ vs downtrend"
+                spanTxt = showSpanLabel ? "\nspan: " + str.tostring(span) + " bars" : ""
+                bgc = alignedBull ? color.new(color.green, 10)
+                                  : color.new(color.gray, 50)
                 label.new(plBar, plPrice,
-                     tag + "\nLL run: " + str.tostring(llRun),
+                     tag + "\nLL run: " + str.tostring(llRun) + spanTxt,
                      style = label.style_label_up, color = bgc,
                      textcolor = color.white, size = size.small)
     else
@@ -148,19 +189,26 @@ if not na(pl)
     lastPLbar   := plBar
 
 // ---------------- Trend line + regime tint ----------------
-plot(trendRef, "Trend reference (D-SMA when toggle on)",
+plot(trendRef, "Trend reference",
      color = color.new(color.blue, 0), linewidth = 1)
-bgcolor(tintBg and inUptrend   ? color.new(color.green, 94) : na, title = "Uptrend regime")
-bgcolor(tintBg and inDowntrend ? color.new(color.red,   94) : na, title = "Downtrend regime")
+bgcolor(tintBg and inUptrend   ? color.new(color.green, 94) : na,
+     title = "Uptrend regime")
+bgcolor(tintBg and inDowntrend ? color.new(color.red,   94) : na,
+     title = "Downtrend regime")
 
 // ---------------- On-chart legend ----------------
 if showNote and barstate.islast
-    regime   = inUptrend ? "UPTREND" : inDowntrend ? "DOWNTREND" : "FLAT"
-    refLabel = useDaily ? "DAILY 200-SMA (validated reference)" :
-       "chart-native " + str.tostring(trendLen) + "-SMA"
+    regime   = inUptrend   ? "UPTREND" :
+               inDowntrend ? "DOWNTREND" : "FLAT"
+    refLabel = useDaily ? "DAILY 200-SMA (validated reference)"
+                        : "chart-native " + str.tostring(trendLen) + "-SMA"
+    spanTxt  = "Span filter: " + spanBucket +
+               (spanBucket == "Custom" ?
+                  "  (" + str.tostring(customLo) + "-" + str.tostring(customHi) + ")" : "")
     var table tb = table.new(position.bottom_right, 1, 1, border_width = 1)
     table.cell(tb, 0, 0,
          "VISUALIZER — context only.\nRegime: " + regime + "  (vs " + refLabel + ")\n" +
+         spanTxt + "\n" +
          "✓ ALIGNED = divergence WITH the trend  (the only robust factor).\n" +
          "✗ FIGHTING = divergence AGAINST the trend (statistically a loser).\n" +
          "Confirms " + str.tostring(rightBars) + " bars after pivot " +
@@ -168,8 +216,12 @@ if showNote and barstate.islast
          text_color = color.white, bgcolor = color.new(color.maroon, 10),
          text_size = size.small, text_halign = text.align_left)
 
-// ---------------- Alerts (only meaningful ones) ----------------
-alertcondition(not na(ph) and inDowntrend, "Bearish div ALIGNED (D-trend)",
+// ---------------- Alerts (only meaningful + within selected span bucket) ----------------
+phSpan = na(lastPHbar) ? 0 : bar_index - rightBars - lastPHbar
+plSpan = na(lastPLbar) ? 0 : bar_index - rightBars - lastPLbar
+alertcondition(not na(ph) and inDowntrend and inSpan(phSpan),
+     "Bearish div ALIGNED (D-trend + span)",
      "Bearish divergence in daily downtrend on {{ticker}} @ {{close}}")
-alertcondition(not na(pl) and inUptrend,   "Bullish div ALIGNED (D-trend)",
+alertcondition(not na(pl) and inUptrend and inSpan(plSpan),
+     "Bullish div ALIGNED (D-trend + span)",
      "Bullish divergence in daily uptrend on {{ticker}} @ {{close}}")
