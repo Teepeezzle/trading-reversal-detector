@@ -186,74 +186,48 @@ regimeStrong = adx >= adxMin
 scalprLongOK  = regimeStrong and ema9 > ema21 and rsi < rsiUpper
 scalprShortOK = regimeStrong and ema9 < ema21 and rsi > rsiLower
 
-int scalprDir = 0
-if scalprLongOK
-    scalprDir := 1
-if scalprShortOK
-    scalprDir := -1
+scalprDir = scalprLongOK ? 1 : scalprShortOK ? -1 : 0
 
-// ---------------- Koh3 STATE (rolling composite) ----------------
-body = math.abs(close - open)
-candleRange = high - low
-lowerWick = math.min(close, open) - low
-upperWick = high - math.max(close, open)
+// ---------------- Koh3 STATE (rolling composite, boolean-vector version) ----------------
+cRange = high - low
+lWick = math.min(close, open) - low
+uWick = high - math.max(close, open)
+cBody = math.abs(close - open)
 volOK = na(volEma) ? false : volume > volEma * 1.2
-
-// per-bar contribution
-bullContrib = 0
-bearContrib = 0
+volSwOK = na(volEma) ? false : volume > volEma * 1.3
 
 // Rejection wicks
-hasBullHammer = candleRange > 0 and lowerWick > candleRange * 0.6 and lowerWick > body * 2 and volOK
-if hasBullHammer
-    bullContrib += 1
-hasBearShooting = candleRange > 0 and upperWick > candleRange * 0.6 and upperWick > body * 2 and volOK
-if hasBearShooting
-    bearContrib += 1
+hasBullHammer   = cRange > 0 and lWick > cRange * 0.6 and lWick > cBody * 2 and volOK
+hasBearShooting = cRange > 0 and uWick > cRange * 0.6 and uWick > cBody * 2 and volOK
 
-// Liquidity sweep (10-bar lookback)
+// Liquidity sweeps (10-bar lookback, non-repainting via [1])
 recentLo = ta.lowest(low, 10)[1]
 recentHi = ta.highest(high, 10)[1]
-volSweepOK = na(volEma) ? false : volume > volEma * 1.3
-if not na(recentLo) and low < recentLo and close > recentLo and volSweepOK
-    bullContrib += 1
-if not na(recentHi) and high > recentHi and close < recentHi and volSweepOK
-    bearContrib += 1
+sweptLow  = not na(recentLo) and low  < recentLo and close > recentLo and volSwOK
+sweptHigh = not na(recentHi) and high > recentHi and close < recentHi and volSwOK
 
-// RSI hook from oversold / overbought
+// RSI hooks
 rsiHookUp = rsi < 35 and rsi > rsi[1] and rsi[1] < rsi[2]
 rsiHookDn = rsi > 65 and rsi < rsi[1] and rsi[1] > rsi[2]
-if rsiHookUp
-    bullContrib += 1
-if rsiHookDn
-    bearContrib += 1
 
 // RSI extreme + reversal candle
 rsiExtBull = rsi < 25 and close > open
 rsiExtBear = rsi > 75 and close < open
-if rsiExtBull
-    bullContrib += 1
-if rsiExtBear
-    bearContrib += 1
 
-barScore = bullContrib - bearContrib
+bullContrib = (hasBullHammer   ? 1 : 0) + (sweptLow  ? 1 : 0) + (rsiHookUp ? 1 : 0) + (rsiExtBull ? 1 : 0)
+bearContrib = (hasBearShooting ? 1 : 0) + (sweptHigh ? 1 : 0) + (rsiHookDn ? 1 : 0) + (rsiExtBear ? 1 : 0)
+barScore    = bullContrib - bearContrib
 rollingScore = math.sum(barScore, koh3Lb)
 
-int koh3Dir = 0
-if rollingScore >= koh3Thr
-    koh3Dir := 1
-if rollingScore <= -koh3Thr
-    koh3Dir := -1
+koh3Dir = rollingScore >= koh3Thr ? 1 : rollingScore <= -koh3Thr ? -1 : 0
 
 // ---------------- VOTE COMBINE ----------------
 longVotes  = (v5Dir == 1 ? 1 : 0) + (scalprDir == 1 ? 1 : 0) + (koh3Dir == 1 ? 1 : 0)
 shortVotes = (v5Dir == -1 ? 1 : 0) + (scalprDir == -1 ? 1 : 0) + (koh3Dir == -1 ? 1 : 0)
 
-int targetState = 0
-if longVotes >= minVotes and longVotes > shortVotes
-    targetState := 1
-if shortVotes >= minVotes and shortVotes > longVotes
-    targetState := -1
+bullPasses = longVotes  >= minVotes and longVotes > shortVotes
+bearPasses = shortVotes >= minVotes and shortVotes > longVotes
+targetState = bullPasses ? 1 : bearPasses ? -1 : 0
 
 // entered_new_direction: target flipped from non-agreement to a new side
 newLong  = targetState == 1  and targetState[1] != 1
@@ -291,11 +265,12 @@ if exitOnOpp and strategy.position_size > 0 and targetState == -1
 if exitOnOpp and strategy.position_size < 0 and targetState == 1
     strategy.close("Short", comment = "Flip -> exit short")
 
+// ---------------- Dashboard helpers (must be top-level in Pine v6) ----------------
+dirTxt(d) => d == 1 ? "LONG" : d == -1 ? "SHORT" : "flat"
+dirCol(d) => d == 1 ? color.green : d == -1 ? color.red : color.gray
+
 // ---------------- Ensemble dashboard ----------------
 if showDash and barstate.islast
-    dirTxt(d) => d == 1 ? "LONG" : d == -1 ? "SHORT" : "flat"
-    dirCol(d) => d == 1 ? color.green : d == -1 ? color.red : color.gray
-
     posTxt = strategy.position_size > 0 ? "LONG"  : strategy.position_size < 0 ? "SHORT" : "FLAT"
     posCol = strategy.position_size > 0 ? color.green : strategy.position_size < 0 ? color.red : color.gray
     targetTxt = targetState == 1 ? "LONG (" + str.tostring(longVotes) + "/3)" : targetState == -1 ? "SHORT (" + str.tostring(shortVotes) + "/3)" : "flat"
