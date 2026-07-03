@@ -1,0 +1,154 @@
+//@version=6
+// =====================================================================
+// BTC-4H V5 BASELINE STRATEGY — for review, not general deployment
+// =====================================================================
+// Signal replicates the BTC-only 4H cell that produced 77.8% win / +20% net
+// / PF 5.06 in the v8 combined test. Rules:
+//   * MACD divergence (regular): bull = LL price + HL macd; bear = HH + LH
+//   * Pivot detection: symmetric 5-bar left + 5-bar right (matches the test)
+//   * Span filter: 6 to 50 bars between the two pivot points
+//   * Trend alignment: LONG only when close > chart-native SMA(200);
+//                      SHORT only when close < chart-native SMA(200)
+//   * Exit: SL = 1.5 x ATR(14), TP = 3.0 x ATR(14) — SCALPR-style 1:2
+//   * Exit-on-opposite ON: aligned bear div closes an open long, and vice versa
+// =====================================================================
+// HONEST CAVEATS — please read before considering live capital:
+//   1) Sample = 9 trades in ~2 years. The 77.8% win rate has a 95% CI of
+//      ~45-94% — statistically indistinguishable from a coin flip.
+//   2) Same rules on BTC 1H over the same window gave 35.8% win rate on 53
+//      trades. Same asset, more data, opposite result. This is the classic
+//      small-sample luck signature.
+//   3) The 2024-2026 window was a strong BTC uptrend. A different regime
+//      (chop, or a deep bear market) may produce very different results.
+//   4) Set as leftBars=5, rightBars=5 to match the tested config. If you
+//      change these you'll get different signals and different equity.
+//   5) This is intended as a small SATELLITE strategy alongside the deployed
+//      daily-breakout basket, not a standalone system. It should not carry
+//      more than a small fraction of your risk.
+// =====================================================================
+strategy("BTC-4H V5 Baseline [REVIEW]",
+     overlay = true,
+     max_lines_count = 500, max_labels_count = 500,
+     initial_capital = 10000,
+     default_qty_type = strategy.percent_of_equity,
+     default_qty_value = 100,
+     commission_type = strategy.commission.percent,
+     commission_value = 0.05,
+     slippage = 2,
+     pyramiding = 0,
+     calc_on_every_tick = false,
+     process_orders_on_close = false)
+
+// ---------------- Inputs (defaults match the tested config) ----------------
+g1 = "Pivot detection (defaults match backtest)"
+leftBars  = input.int(5, "LEFT bars",  minval = 2, group = g1,
+     tooltip = "5 matches the tested config. Lower = more signals = different result.")
+rightBars = input.int(5, "RIGHT bars (confirmation lag)", minval = 1, maxval = 10,
+     group = g1,
+     tooltip = "5 matches the tested config. 0 impossible without repainting.")
+
+g2 = "MACD (12/26/9 standard)"
+fastLen = input.int(12, "MACD fast",   group = g2)
+slowLen = input.int(26, "MACD slow",   group = g2)
+sigLen  = input.int(9,  "MACD signal", group = g2)
+
+g3 = "Trend alignment (chart-native SMA)"
+trendLen = input.int(200, "Trend SMA length", minval = 50, group = g3)
+
+g4 = "Bar-span filter"
+spanMin = input.int(6,  "Span MIN (bars)", minval = 1, group = g4)
+spanMax = input.int(50, "Span MAX (bars)", minval = 1, group = g4)
+
+g5 = "Risk (SCALPR-style ATR exits)"
+atrLen = input.int(14, "ATR length", group = g5)
+slMult = input.float(1.5, "SL (ATR x)", step = 0.1, group = g5)
+tpMult = input.float(3.0, "TP (ATR x)", step = 0.1, group = g5)
+exitOnOpp = input.bool(true, "Exit on opposite ALIGNED divergence", group = g5)
+
+g6 = "Display"
+tintBg  = input.bool(true, "Tint background by trend regime", group = g6)
+showDots= input.bool(true, "Mark swing pivots", group = g6)
+
+// ---------------- Core series ----------------
+[macdLine, _s, _h] = ta.macd(close, fastLen, slowLen, sigLen)
+sma = ta.sma(close, trendLen)
+atr = ta.atr(atrLen)
+
+inUptrend   = close > sma
+inDowntrend = close < sma
+
+// ---------------- Pivots (non-repainting) ----------------
+ph = ta.pivothigh(high, leftBars, rightBars)
+pl = ta.pivotlow(low,  leftBars, rightBars)
+
+plotshape(showDots and not na(ph), "Swing High", shape.circle, location.abovebar,
+     color = color.new(color.red, 40), size = size.tiny, offset = -rightBars)
+plotshape(showDots and not na(pl), "Swing Low", shape.circle, location.belowbar,
+     color = color.new(color.green, 40), size = size.tiny, offset = -rightBars)
+
+// ---------------- Track pivots + per-bar signal flags ----------------
+var float lastPHprice = na
+var float lastPHmacd  = na
+var int   lastPHbar   = na
+var float lastPLprice = na
+var float lastPLmacd  = na
+var int   lastPLbar   = na
+
+var bool bullSignal = false
+var bool bearSignal = false
+bullSignal := false
+bearSignal := false
+
+if not na(ph)
+    phPrice = ph
+    phMacd  = macdLine[rightBars]
+    phBar   = bar_index - rightBars
+    if not na(lastPHprice)
+        higherHigh = phPrice > lastPHprice
+        bearDiv    = higherHigh and phMacd < lastPHmacd
+        span       = phBar - lastPHbar
+        spanOK     = span >= spanMin and span <= spanMax
+        aligned    = inDowntrend
+        if bearDiv and aligned and spanOK
+            bearSignal := true
+    lastPHprice := phPrice
+    lastPHmacd  := phMacd
+    lastPHbar   := phBar
+
+if not na(pl)
+    plPrice = pl
+    plMacd  = macdLine[rightBars]
+    plBar   = bar_index - rightBars
+    if not na(lastPLprice)
+        lowerLow = plPrice < lastPLprice
+        bullDiv  = lowerLow and plMacd > lastPLmacd
+        span     = plBar - lastPLbar
+        spanOK   = span >= spanMin and span <= spanMax
+        aligned  = inUptrend
+        if bullDiv and aligned and spanOK
+            bullSignal := true
+    lastPLprice := plPrice
+    lastPLmacd  := plMacd
+    lastPLbar   := plBar
+
+// ---------------- Visual ----------------
+plot(sma, "Chart-native 200-SMA", color = color.new(color.blue, 0), linewidth = 1)
+bgcolor(tintBg and inUptrend   ? color.new(color.green, 94) : na, title = "Uptrend")
+bgcolor(tintBg and inDowntrend ? color.new(color.red,   94) : na, title = "Downtrend")
+plotshape(bullSignal, "LONG entry", shape.triangleup, location.belowbar,
+     color = color.new(color.green, 0), size = size.small, text = "LONG")
+plotshape(bearSignal, "SHORT entry", shape.triangledown, location.abovebar,
+     color = color.new(color.red, 0), size = size.small, text = "SHORT")
+
+// ---------------- Strategy execution ----------------
+if bullSignal and (exitOnOpp or strategy.position_size <= 0)
+    strategy.entry("Long", strategy.long, comment = "Bull div aligned")
+    slPxL = close - slMult * atr
+    tpPxL = close + tpMult * atr
+    strategy.exit("Long-Exit", from_entry = "Long", stop = slPxL, limit = tpPxL)
+
+if bearSignal and (exitOnOpp or strategy.position_size >= 0)
+    strategy.entry("Short", strategy.short, comment = "Bear div aligned")
+    slPxS = close + slMult * atr
+    tpPxS = close - tpMult * atr
+    strategy.exit("Short-Exit", from_entry = "Short", stop = slPxS, limit = tpPxS)
