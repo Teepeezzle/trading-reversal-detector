@@ -1,0 +1,332 @@
+//@version=6
+// =====================================================================
+// V5 + SCALPR + Koh3 ENSEMBLE (STATE VOTE)  [4H BASKET STRATEGY]
+// Pine v6 · free plan.
+//
+// Architecture: each system emits a per-bar STATE (long / short / neutral).
+// Trade is opened when >= minVotes (default 2 of 3) states agree in the same
+// direction.  Trade is closed on opposite state OR SL/TP hit.
+//
+//   V5 STATE:      +1 when the most recent aligned MACD divergence pivot
+//                  is still "live" (fired within V5_LOOKBACK bars, trend
+//                  still agrees with pivot direction, span 6-50 bars).
+//                  -1 for the mirror case.  0 otherwise.
+//
+//   SCALPR STATE:  +1 when EMA9 > EMA21 AND ADX(14) >= 20 AND RSI < 80.
+//                  -1 for the mirror short setup.  0 otherwise.
+//
+//   Koh3 STATE:    rolling sum over last KOH3_LB bars of per-bar composite
+//                  score (rejection wick, liquidity sweep, RSI hook,
+//                  RSI-extreme reversal — bullish +1 each, bearish -1 each).
+//                  >= KOH3_THR -> +1.  <= -KOH3_THR -> -1.  0 otherwise.
+//
+//   VOTE:          long_votes  = # of states equal to +1 among {V5, SCALPR, Koh3}
+//                  short_votes = # of states equal to -1
+//                  If long_votes  >= minVotes -> target long.
+//                  If short_votes >= minVotes -> target short.
+//                  Else target flat.
+//                  Entry fires on the bar the target changes to a new direction.
+//
+//   EXITS: SL 1.5xATR, TP 3.0xATR (1:2 R:R), plus exit-on-opposite-state.
+//
+// TESTED CONFIGURATION (v10 state-ensemble test, yfinance ~2y, 4H bars):
+//   Winning config: minVotes = 2 (majority) on 4H
+//   Basket:   Gold, Silver, BTC, WTI Oil, NAS100  (5 assets, each $10k)
+//   Portfolio: +6.4% net, PF 1.17, 37.6% agg win over 165 trades
+//   Per-asset (best): Bitcoin +32.4% net, PF 1.61, 52.3% win, n=44
+//                     Silver  +17.3% net, PF 1.53, 42.9% win, n=28
+//                     WTI Oil +3.4% net, PF 1.08, 27.6% win, n=29
+//   Per-asset (losing): Gold -12.8%, NAS100 -8.2%
+//
+// HONEST CAVEATS (please read before live deployment):
+//   1) Win rate at portfolio level is ~37% — the edge lives in the 1:2 R:R,
+//      not in a high win rate. If a losing streak feels wrong to you,
+//      this strategy will feel wrong.
+//   2) BTC carries the basket (+32% on 44 trades). Gold and NAS100 lose.
+//      Consider running per-asset and disabling the losing ones.
+//   3) The strict 3-of-3 config produced only 7 trades on 4H over 2 years —
+//      too few to trust. Stay at minVotes = 2.
+//   4) Same rules on 1H produce -17% loss. Use ONLY on 4H.
+//   5) Deploy as a SATELLITE strategy (1-3% risk) alongside the validated
+//      daily-breakout basket, NOT as a standalone.
+// =====================================================================
+strategy("V5+SCALPR+Koh3 Ensemble [4H BASKET]",
+     overlay = true,
+     max_lines_count = 500, max_labels_count = 500,
+     initial_capital = 10000,
+     default_qty_type = strategy.percent_of_equity,
+     default_qty_value = 100,
+     commission_type = strategy.commission.percent,
+     commission_value = 0.05,
+     slippage = 2,
+     pyramiding = 0,
+     calc_on_every_tick = false,
+     process_orders_on_close = false)
+
+// ---------------- Inputs ----------------
+g0 = "Ensemble vote"
+minVotes = input.int(2, "Min votes to enter (2 = majority, 3 = strict)",
+     minval = 2, maxval = 3, group = g0,
+     tooltip = "Tested config = 2. Strict 3 produced only 7 trades over 2y — too sparse to trust.")
+
+g1 = "V5 divergence state"
+leftBars  = input.int(5, "LEFT bars", minval = 2, group = g1)
+rightBars = input.int(5, "RIGHT bars", minval = 1, maxval = 10, group = g1)
+fastLen   = input.int(12, "MACD fast", group = g1)
+slowLen   = input.int(26, "MACD slow", group = g1)
+sigLen    = input.int(9,  "MACD signal", group = g1)
+trendLen  = input.int(200, "Trend SMA length", minval = 50, group = g1)
+spanMin   = input.int(6,  "Span MIN (bars)", minval = 1, group = g1)
+spanMax   = input.int(50, "Span MAX (bars)", minval = 1, group = g1)
+v5Lookback= input.int(30, "V5 state persistence (bars)", minval = 1, group = g1,
+     tooltip = "How long a divergence state stays 'live' after the pivot.")
+
+g2 = "SCALPR regime state"
+adxLen    = input.int(14, "ADX length", group = g2)
+adxMin    = input.float(20.0, "ADX min", step = 0.5, group = g2)
+emaFast   = input.int(9,  "EMA fast", group = g2)
+emaSlow   = input.int(21, "EMA slow", group = g2)
+rsiLen    = input.int(14, "RSI length", group = g2)
+rsiUpper  = input.int(80, "Long OK if RSI <", minval = 50, maxval = 99, group = g2)
+rsiLower  = input.int(20, "Short OK if RSI >", minval = 1, maxval = 50, group = g2)
+
+g3 = "Koh3 composite state"
+koh3Lb    = input.int(10, "Rolling window (bars)", minval = 2, group = g3)
+koh3Thr   = input.int(2,  "Score threshold (±)", minval = 1, group = g3)
+
+g4 = "Risk (ATR exits)"
+atrLen    = input.int(14, "ATR length", group = g4)
+slMult    = input.float(1.5, "SL (ATR x)", step = 0.1, group = g4)
+tpMult    = input.float(3.0, "TP (ATR x)", step = 0.1, group = g4)
+exitOnOpp = input.bool(true, "Exit on opposite ensemble state", group = g4)
+
+g5 = "Display"
+tintBg    = input.bool(true, "Tint background by V5 trend regime", group = g5)
+showDots  = input.bool(true, "Mark swing pivots", group = g5)
+showEMAs  = input.bool(true, "Plot EMA9 / EMA21", group = g5)
+showDash  = input.bool(true, "Show ensemble dashboard", group = g5)
+
+// ---------------- Core series ----------------
+[macdLine, _s, _h] = ta.macd(close, fastLen, slowLen, sigLen)
+sma = ta.sma(close, trendLen)
+atr = ta.atr(atrLen)
+[diP, diM, adx] = ta.dmi(adxLen, adxLen)
+ema9  = ta.ema(close, emaFast)
+ema21 = ta.ema(close, emaSlow)
+rsi   = ta.rsi(close, rsiLen)
+volEma = ta.ema(volume, 20)
+
+inUptrend   = close > sma
+inDowntrend = close < sma
+
+// ---------------- V5 STATE ----------------
+ph = ta.pivothigh(high, leftBars, rightBars)
+pl = ta.pivotlow(low,  leftBars, rightBars)
+
+plotshape(showDots and not na(ph), "Swing High", shape.circle, location.abovebar,
+     color = color.new(color.red, 40), size = size.tiny, offset = -rightBars)
+plotshape(showDots and not na(pl), "Swing Low", shape.circle, location.belowbar,
+     color = color.new(color.green, 40), size = size.tiny, offset = -rightBars)
+
+var float lastPHprice = na
+var float lastPHmacd  = na
+var int   lastPHbar   = na
+var float lastPLprice = na
+var float lastPLmacd  = na
+var int   lastPLbar   = na
+
+// v5Direction: +1 long divergence live, -1 short live, 0 nothing recent
+var int v5Dir    = 0
+var int v5BarSet = na
+
+// Detect new bearish divergence
+if not na(ph)
+    phPrice = ph
+    phMacd  = macdLine[rightBars]
+    phBar   = bar_index - rightBars
+    if not na(lastPHprice)
+        higherHigh = phPrice > lastPHprice
+        bearDiv    = higherHigh and phMacd < lastPHmacd
+        span       = phBar - lastPHbar
+        spanOK     = span >= spanMin and span <= spanMax
+        if bearDiv and inDowntrend and spanOK
+            v5Dir := -1
+            v5BarSet := bar_index
+    lastPHprice := phPrice
+    lastPHmacd  := phMacd
+    lastPHbar   := phBar
+
+// Detect new bullish divergence
+if not na(pl)
+    plPrice = pl
+    plMacd  = macdLine[rightBars]
+    plBar   = bar_index - rightBars
+    if not na(lastPLprice)
+        lowerLow = plPrice < lastPLprice
+        bullDiv  = lowerLow and plMacd > lastPLmacd
+        span     = plBar - lastPLbar
+        spanOK   = span >= spanMin and span <= spanMax
+        if bullDiv and inUptrend and spanOK
+            v5Dir := 1
+            v5BarSet := bar_index
+    lastPLprice := plPrice
+    lastPLmacd  := plMacd
+    lastPLbar   := plBar
+
+// Expire V5 state if past lookback OR trend flips against it
+if not na(v5BarSet) and (bar_index - v5BarSet) > v5Lookback
+    v5Dir := 0
+if v5Dir == 1 and not inUptrend
+    v5Dir := 0
+if v5Dir == -1 and not inDowntrend
+    v5Dir := 0
+
+// ---------------- SCALPR STATE ----------------
+regimeStrong = adx >= adxMin
+scalprLongOK  = regimeStrong and ema9 > ema21 and rsi < rsiUpper
+scalprShortOK = regimeStrong and ema9 < ema21 and rsi > rsiLower
+
+int scalprDir = 0
+if scalprLongOK
+    scalprDir := 1
+if scalprShortOK
+    scalprDir := -1
+
+// ---------------- Koh3 STATE (rolling composite) ----------------
+body = math.abs(close - open)
+candleRange = high - low
+lowerWick = math.min(close, open) - low
+upperWick = high - math.max(close, open)
+volOK = na(volEma) ? false : volume > volEma * 1.2
+
+// per-bar contribution
+bullContrib = 0
+bearContrib = 0
+
+// Rejection wicks
+hasBullHammer = candleRange > 0 and lowerWick > candleRange * 0.6 and lowerWick > body * 2 and volOK
+if hasBullHammer
+    bullContrib += 1
+hasBearShooting = candleRange > 0 and upperWick > candleRange * 0.6 and upperWick > body * 2 and volOK
+if hasBearShooting
+    bearContrib += 1
+
+// Liquidity sweep (10-bar lookback)
+recentLo = ta.lowest(low, 10)[1]
+recentHi = ta.highest(high, 10)[1]
+volSweepOK = na(volEma) ? false : volume > volEma * 1.3
+if not na(recentLo) and low < recentLo and close > recentLo and volSweepOK
+    bullContrib += 1
+if not na(recentHi) and high > recentHi and close < recentHi and volSweepOK
+    bearContrib += 1
+
+// RSI hook from oversold / overbought
+rsiHookUp = rsi < 35 and rsi > rsi[1] and rsi[1] < rsi[2]
+rsiHookDn = rsi > 65 and rsi < rsi[1] and rsi[1] > rsi[2]
+if rsiHookUp
+    bullContrib += 1
+if rsiHookDn
+    bearContrib += 1
+
+// RSI extreme + reversal candle
+rsiExtBull = rsi < 25 and close > open
+rsiExtBear = rsi > 75 and close < open
+if rsiExtBull
+    bullContrib += 1
+if rsiExtBear
+    bearContrib += 1
+
+barScore = bullContrib - bearContrib
+rollingScore = math.sum(barScore, koh3Lb)
+
+int koh3Dir = 0
+if rollingScore >= koh3Thr
+    koh3Dir := 1
+if rollingScore <= -koh3Thr
+    koh3Dir := -1
+
+// ---------------- VOTE COMBINE ----------------
+longVotes  = (v5Dir == 1 ? 1 : 0) + (scalprDir == 1 ? 1 : 0) + (koh3Dir == 1 ? 1 : 0)
+shortVotes = (v5Dir == -1 ? 1 : 0) + (scalprDir == -1 ? 1 : 0) + (koh3Dir == -1 ? 1 : 0)
+
+int targetState = 0
+if longVotes >= minVotes and longVotes > shortVotes
+    targetState := 1
+if shortVotes >= minVotes and shortVotes > longVotes
+    targetState := -1
+
+// entered_new_direction: target flipped from non-agreement to a new side
+newLong  = targetState == 1  and targetState[1] != 1
+newShort = targetState == -1 and targetState[1] != -1
+
+// ---------------- Visual layers ----------------
+plot(sma, "Trend 200-SMA", color = color.new(color.blue, 0), linewidth = 2)
+plot(showEMAs ? ema9  : na, "EMA 9",  color = color.new(color.orange, 0), linewidth = 1)
+plot(showEMAs ? ema21 : na, "EMA 21", color = color.new(color.purple, 0), linewidth = 1)
+
+bgcolor(tintBg and inUptrend   ? color.new(color.green, 94) : na, title = "Uptrend regime")
+bgcolor(tintBg and inDowntrend ? color.new(color.red,   94) : na, title = "Downtrend regime")
+
+plotshape(newLong,  "LONG entry",  shape.triangleup,   location.belowbar,
+     color = color.new(color.green, 0), size = size.small, text = "LONG")
+plotshape(newShort, "SHORT entry", shape.triangledown, location.abovebar,
+     color = color.new(color.red, 0), size = size.small, text = "SHORT")
+
+// ---------------- Strategy execution ----------------
+if newLong
+    strategy.entry("Long", strategy.long, comment = "Ensemble long (" + str.tostring(longVotes) + "/3)")
+    slPxL = close - slMult * atr
+    tpPxL = close + tpMult * atr
+    strategy.exit("Long-Exit", from_entry = "Long", stop = slPxL, limit = tpPxL)
+
+if newShort
+    strategy.entry("Short", strategy.short, comment = "Ensemble short (" + str.tostring(shortVotes) + "/3)")
+    slPxS = close + slMult * atr
+    tpPxS = close - tpMult * atr
+    strategy.exit("Short-Exit", from_entry = "Short", stop = slPxS, limit = tpPxS)
+
+// Exit-on-opposite state
+if exitOnOpp and strategy.position_size > 0 and targetState == -1
+    strategy.close("Long", comment = "Flip -> exit long")
+if exitOnOpp and strategy.position_size < 0 and targetState == 1
+    strategy.close("Short", comment = "Flip -> exit short")
+
+// ---------------- Ensemble dashboard ----------------
+if showDash and barstate.islast
+    dirTxt(d) => d == 1 ? "LONG" : d == -1 ? "SHORT" : "flat"
+    dirCol(d) => d == 1 ? color.green : d == -1 ? color.red : color.gray
+
+    posTxt = strategy.position_size > 0 ? "LONG"  : strategy.position_size < 0 ? "SHORT" : "FLAT"
+    posCol = strategy.position_size > 0 ? color.green : strategy.position_size < 0 ? color.red : color.gray
+    targetTxt = targetState == 1 ? "LONG (" + str.tostring(longVotes) + "/3)" : targetState == -1 ? "SHORT (" + str.tostring(shortVotes) + "/3)" : "flat"
+    targetCol = targetState == 1 ? color.green : targetState == -1 ? color.red : color.gray
+
+    var table dash = table.new(position.bottom_right, 2, 8, border_width = 1,
+         bgcolor = color.new(#0a0e1a, 20), frame_color = color.new(color.blue, 60),
+         frame_width = 1)
+    table.cell(dash, 0, 0, "ENSEMBLE " + str.tostring(minVotes) + "/3", text_color = color.aqua,
+         text_size = size.small, bgcolor = color.new(#0d1424, 0), text_halign = text.align_center)
+    table.cell(dash, 1, 0, syminfo.ticker + " " + timeframe.period, text_color = color.gray,
+         text_size = size.small, bgcolor = color.new(#0d1424, 0), text_halign = text.align_center)
+    table.cell(dash, 0, 1, "V5 divergence", text_color = color.gray, text_size = size.small)
+    table.cell(dash, 1, 1, dirTxt(v5Dir),   text_color = dirCol(v5Dir), text_size = size.small)
+    table.cell(dash, 0, 2, "SCALPR regime", text_color = color.gray, text_size = size.small)
+    table.cell(dash, 1, 2, dirTxt(scalprDir), text_color = dirCol(scalprDir), text_size = size.small)
+    table.cell(dash, 0, 3, "Koh3 score",    text_color = color.gray, text_size = size.small)
+    table.cell(dash, 1, 3, dirTxt(koh3Dir) + "  (" + str.tostring(rollingScore) + ")",
+         text_color = dirCol(koh3Dir), text_size = size.small)
+    table.cell(dash, 0, 4, "TARGET",        text_color = color.gray, text_size = size.small)
+    table.cell(dash, 1, 4, targetTxt,       text_color = targetCol, text_size = size.small)
+    table.cell(dash, 0, 5, "POSITION",      text_color = color.gray, text_size = size.small)
+    table.cell(dash, 1, 5, posTxt,          text_color = posCol, text_size = size.small)
+    table.cell(dash, 0, 6, "ADX",           text_color = color.gray, text_size = size.small)
+    table.cell(dash, 1, 6, str.tostring(math.round(adx)), text_color = color.aqua, text_size = size.small)
+    table.cell(dash, 0, 7, "R:R",           text_color = color.gray, text_size = size.small)
+    table.cell(dash, 1, 7, "1 : " + str.tostring(tpMult / slMult, "#.##"),
+         text_color = color.aqua, text_size = size.small)
+
+// ---------------- Alerts ----------------
+alertcondition(newLong,  "Ensemble Long",
+     "ENSEMBLE LONG on {{ticker}} @ {{close}}")
+alertcondition(newShort, "Ensemble Short",
+     "ENSEMBLE SHORT on {{ticker}} @ {{close}}")
