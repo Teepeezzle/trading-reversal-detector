@@ -1,0 +1,72 @@
+name: V5 Divergence Scan (multi-timeframe)
+
+# One cron tick every 30 minutes. v5_scan.py routes internally:
+#   :00 and :30  ->  15m timeframe
+#   :00 only     ->  30m, 45m, 1h, 2h, 3h, 4h
+# Timeframes and assets live in config/v5_scanner.yaml — edit that file to
+# add/remove instruments or timeframes; no workflow change needed.
+#
+# NOTE: GitHub cron is best-effort — runs are typically delayed 5-30 min at
+# peak times. The scanner floors the trigger time to its 30-min slot and
+# re-derives the last CLOSED bar from wall-clock, so delays don't break it.
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      timeframes:
+        description: "'auto' (route by clock), 'all', or CSV e.g. '1h,4h'"
+        required: false
+        default: "all"
+
+# Never let two scans overlap (a delayed run colliding with the next tick).
+concurrency:
+  group: v5-divergence-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    name: Scan configured assets and email aligned divergences
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Dedup state survives between runs via the Actions cache, so the same
+      # divergence is never emailed twice even when cron delays overlap the
+      # freshness windows of consecutive runs.
+      - name: Restore alert-dedup state
+        uses: actions/cache/restore@v4
+        with:
+          path: state
+          key: v5-scan-state-${{ github.run_id }}
+          restore-keys: |
+            v5-scan-state-
+
+      - name: Run V5 divergence scan
+        env:
+          EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          PYTHONIOENCODING: "utf-8"
+        run: |
+          python v5_scan.py --timeframes "${{ github.event.inputs.timeframes || 'auto' }}"
+
+      - name: Save alert-dedup state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: state
+          key: v5-scan-state-${{ github.run_id }}

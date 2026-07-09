@@ -1,0 +1,82 @@
+# =====================================================================
+# V5 Swing + MACD Divergence scanner — configuration
+#
+# Mirrors the TradingView V5 visualizer settings in use:
+#   LEFT bars = 2, RIGHT bars = 2, MACD 12/26/9,
+#   chart-native 200-SMA trend reference (daily-SMA toggle OFF),
+#   span bucket Custom 6-50 bars.
+# Notifications are sent ONLY for divergences ALIGNED with the trend.
+#
+# TO ADD/REMOVE AN ASSET: edit the `assets:` block. Key = display name,
+#   value = yfinance ticker. Nothing else to change.
+# TO ADD A TIMEFRAME: add a block under `timeframes:`. Key must be like
+#   "90m" or "6h". yfinance only serves 15m/30m/1h natively, so anything
+#   else needs `source_interval` + `resample` (pandas rule, e.g. "90min").
+#   `scan_every_minutes` controls how often the GitHub cron scans it
+#   (must be a multiple of 30 — the workflow ticks every 30 minutes).
+# =====================================================================
+
+divergence:
+  left_bars: 2          # pivot structure bars (matches screenshot)
+  right_bars: 2         # confirmation lag (matches screenshot)
+  macd_fast: 12
+  macd_slow: 26
+  macd_signal: 9
+  trend_sma: 200        # chart-native SMA per scanned timeframe
+  span_min: 6           # pivot-to-pivot span filter (Custom 6-50)
+  span_max: 50
+  aligned_only: true    # email ONLY trend-aligned divergences
+
+# How long after a bar closes a signal still counts as "new".
+# Covers GitHub cron delay (5-30 min typical). The dedup state file
+# prevents the same signal being emailed twice even inside this window.
+freshness_buffer_minutes: 45
+
+assets:
+  BTCUSD:  BTC-USD
+  XAUUSD:  GC=F        # gold futures — closest yfinance proxy for spot XAUUSD
+  NAS100:  NQ=F
+  GBPUSD:  GBPUSD=X
+  EURUSD:  EURUSD=X
+  ETHUSD:  ETH-USD
+  DOGEUSD: DOGE-USD
+  XAGUSD:  SI=F        # silver futures — proxy for spot XAGUSD
+  DXY:     DX-Y.NYB
+  EURNZD:  EURNZD=X
+
+timeframes:
+  15m:
+    source_interval: 15m
+    resample: null
+    period: 30d
+    scan_every_minutes: 30
+  30m:
+    source_interval: 30m
+    resample: null
+    period: 60d
+    scan_every_minutes: 60
+  45m:
+    source_interval: 15m
+    resample: 45min
+    period: 60d
+    scan_every_minutes: 60
+  1h:
+    source_interval: 1h
+    resample: null
+    period: 120d
+    scan_every_minutes: 60
+  2h:
+    source_interval: 1h
+    resample: 2h
+    period: 120d
+    scan_every_minutes: 60
+  3h:
+    source_interval: 1h
+    resample: 3h
+    period: 150d
+    scan_every_minutes: 60
+  4h:
+    source_interval: 1h
+    resample: 4h
+    period: 180d
+    scan_every_minutes: 60
