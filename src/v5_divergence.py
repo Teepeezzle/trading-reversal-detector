@@ -327,6 +327,8 @@ def dedup_signals(signals: List[DivergenceSignal],
 
 def _fmt_price(v: float, ticker: str) -> str:
     if ticker.endswith("=X"):
+        if "JPY" in ticker:
+            return f"{v:,.3f}"
         return f"{v:,.5f}"
     if v < 1:
         return f"{v:,.5f}"

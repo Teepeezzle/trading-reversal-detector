@@ -51,6 +51,11 @@ assets:
   XAGUSD:  {ticker: SI=F,     anchor: ny17}  # silver futures — proxy for spot XAGUSD
   DXY:     {ticker: DX-Y.NYB, anchor: ny17}
   EURNZD:  {ticker: EURNZD=X, anchor: ny17}
+  USDJPY:  {ticker: USDJPY=X, anchor: ny17}
+  NZDJPY:  {ticker: NZDJPY=X, anchor: ny17}
+  GBPJPY:  {ticker: GBPJPY=X, anchor: ny17}
+  AUDUSD:  {ticker: AUDUSD=X, anchor: ny17}
+  XBRUSD:  {ticker: BZ=F,     anchor: ny17}  # Brent futures — proxy for spot XBRUSD
 
 timeframes:
   15m:
