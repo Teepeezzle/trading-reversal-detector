@@ -8,7 +8,8 @@
 # Notifications are sent ONLY for divergences ALIGNED with the trend.
 #
 # TO ADD/REMOVE AN ASSET: edit the `assets:` block. Key = display name,
-#   value = yfinance ticker. Nothing else to change.
+#   value = {ticker: <yfinance ticker>, anchor: utc|ny17}. Use anchor utc
+#   for crypto, ny17 for FX/metals/index CFDs. Nothing else to change.
 # TO ADD A TIMEFRAME: add a block under `timeframes:`. Key must be like
 #   "90m" or "6h". yfinance only serves 15m/30m/1h natively, so anything
 #   else needs `source_interval` + `resample` (pandas rule, e.g. "90min").
@@ -32,17 +33,24 @@ divergence:
 # prevents the same signal being emailed twice even inside this window.
 freshness_buffer_minutes: 45
 
+# anchor controls how 45m/2h/3h/4h bars are built so they match the bars
+# TradingView draws for that symbol:
+#   utc  = bins from 00:00 UTC (TV convention for crypto)
+#   ny17 = bins from 17:00 New York session open (TV convention for FX,
+#          metals, index CFDs — a 4h EURUSD bar on TV is 21:00-01:00 UTC
+#          in summer, NOT 00:00-04:00)
+# Native 15m/30m/1h bars land on round clock times either way.
 assets:
-  BTCUSD:  BTC-USD
-  XAUUSD:  GC=F        # gold futures — closest yfinance proxy for spot XAUUSD
-  NAS100:  NQ=F
-  GBPUSD:  GBPUSD=X
-  EURUSD:  EURUSD=X
-  ETHUSD:  ETH-USD
-  DOGEUSD: DOGE-USD
-  XAGUSD:  SI=F        # silver futures — proxy for spot XAGUSD
-  DXY:     DX-Y.NYB
-  EURNZD:  EURNZD=X
+  BTCUSD:  {ticker: BTC-USD,  anchor: utc}
+  XAUUSD:  {ticker: GC=F,     anchor: ny17}  # gold futures — proxy for spot XAUUSD
+  NAS100:  {ticker: NQ=F,     anchor: ny17}
+  GBPUSD:  {ticker: GBPUSD=X, anchor: ny17}
+  EURUSD:  {ticker: EURUSD=X, anchor: ny17}
+  ETHUSD:  {ticker: ETH-USD,  anchor: utc}
+  DOGEUSD: {ticker: DOGE-USD, anchor: utc}
+  XAGUSD:  {ticker: SI=F,     anchor: ny17}  # silver futures — proxy for spot XAGUSD
+  DXY:     {ticker: DX-Y.NYB, anchor: ny17}
+  EURNZD:  {ticker: EURNZD=X, anchor: ny17}
 
 timeframes:
   15m:

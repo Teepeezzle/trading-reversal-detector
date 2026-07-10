@@ -71,7 +71,15 @@ def scan_timeframe(tf: str, spec: dict, assets: Dict[str, str],
     rule = spec.get("resample")
 
     found: List[DivergenceSignal] = []
-    for asset, ticker in assets.items():
+    for asset, spec_or_ticker in assets.items():
+        # Config values are {ticker, anchor} dicts; bare strings still work
+        # (anchor defaults to utc).
+        if isinstance(spec_or_ticker, dict):
+            ticker = str(spec_or_ticker["ticker"])
+            anchor = str(spec_or_ticker.get("anchor", "utc"))
+        else:
+            ticker = str(spec_or_ticker)
+            anchor = "utc"
         cache_key = (ticker, source, period)
         if cache_key not in fetch_cache:
             fetch_cache[cache_key] = fetch_ohlcv(ticker, source, period)
@@ -79,7 +87,7 @@ def scan_timeframe(tf: str, spec: dict, assets: Dict[str, str],
         if df is None or df.empty:
             print(f"  {asset:<8} {tf:<4} no data from yfinance — skipped")
             continue
-        frame = resample_ohlcv(df, rule) if rule else df
+        frame = resample_ohlcv(df, rule, anchor) if rule else df
         frame = drop_incomplete_last_bar(frame, bar_minutes, now)
         need = int(div_cfg["trend_sma"]) + 10
         if len(frame) < need:

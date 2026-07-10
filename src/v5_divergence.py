@@ -18,8 +18,20 @@ Python replica of the TradingView Pine indicator
 * Only ALIGNED divergences are alerted (per user requirement).
 
 Data comes from yfinance. Timeframes yfinance doesn't serve natively
-(45m/2h/3h/4h) are resampled from 15m/1h bars, so bar boundaries are
-UTC-midnight anchored and may differ slightly from broker/TradingView bars.
+(45m/2h/3h/4h) are resampled from 15m/1h bars.
+
+TradingView parity notes (things that made scanner signals invisible on TV):
+
+* ``ta.pivothigh``/``ta.pivotlow`` require the pivot bar to be STRICTLY
+  above/below every other bar in its window — equal highs/lows produce NO
+  pivot on TradingView. ``find_pivots`` therefore uses strict comparison.
+* TradingView anchors intraday bars for FX / metals / index CFDs to the
+  session open at 17:00 America/New_York, not to UTC midnight. Resampling
+  supports ``anchor="ny17"`` (FX/metals/indices) and ``anchor="utc"``
+  (crypto) so 45m/2h/3h/4h bars line up with the user's TV charts.
+* Residual differences remain: yfinance proxies (GC=F for XAUUSD, NQ=F for
+  NAS100, DX-Y.NYB for DXY) are different instruments from the OANDA/TVC
+  symbols on TV, so marginal pivots/divergences can still disagree.
 """
 
 from __future__ import annotations
@@ -108,11 +120,48 @@ def fetch_ohlcv(ticker: str, interval: str, period: str,
     return None
 
 
-def resample_ohlcv(df: pd.DataFrame, rule: str) -> pd.DataFrame:
-    """Resample to a coarser bar (UTC-midnight anchored bins)."""
-    agg = {"Open": "first", "High": "max", "Low": "min",
-           "Close": "last", "Volume": "sum"}
-    return df.resample(rule).agg(agg).dropna(subset=["Open", "High", "Low", "Close"])
+_OHLCV_AGG = {"Open": "first", "High": "max", "Low": "min",
+              "Close": "last", "Volume": "sum"}
+
+
+def resample_ohlcv(df: pd.DataFrame, rule: str,
+                   anchor: str = "utc") -> pd.DataFrame:
+    """Resample to a coarser bar, anchored the way TradingView anchors it.
+
+    anchor="utc"  — bins start from UTC midnight. Matches TV crypto charts
+                    (BTCUSD/ETHUSD/... anchor at 00:00 UTC).
+    anchor="ny17" — bins start from 17:00 America/New_York, the FX/CFD
+                    session open TradingView uses for EURUSD, XAUUSD,
+                    NAS100 etc. A "4h" bar is then 21:00-01:00 UTC in
+                    summer (17:00 EDT), 22:00-02:00 UTC in winter — which
+                    is what the TV chart shows, and NOT UTC midnight bins.
+
+    The returned index is UTC-naive bar START times, like the input.
+    """
+    if anchor == "utc":
+        return (df.resample(rule).agg(_OHLCV_AGG)
+                  .dropna(subset=["Open", "High", "Low", "Close"]))
+    if anchor != "ny17":
+        raise ValueError(f"Unknown resample anchor: {anchor!r}")
+
+    # Work in naive New-York WALL-CLOCK time so DST is handled by the tz
+    # conversion, then shift 17:00 -> 00:00 so plain resample bins align
+    # with the session open.
+    ny_wall = (df.index.tz_localize("UTC")
+                 .tz_convert("America/New_York")
+                 .tz_localize(None))
+    shifted = df.copy()
+    shifted.index = ny_wall - pd.Timedelta(hours=17)
+    out = (shifted.resample(rule).agg(_OHLCV_AGG)
+                  .dropna(subset=["Open", "High", "Low", "Close"]))
+    back = out.index + pd.Timedelta(hours=17)
+    # DST corner cases (2 days/yr): spring-forward bins can land on a
+    # nonexistent NY wall time, fall-back bins on an ambiguous one.
+    out.index = (back.tz_localize("America/New_York",
+                                  nonexistent="shift_forward",
+                                  ambiguous=np.ones(len(back), dtype=bool))
+                     .tz_convert("UTC").tz_localize(None))
+    return out
 
 
 def drop_incomplete_last_bar(df: pd.DataFrame, bar_minutes: int,
@@ -135,15 +184,21 @@ def macd_line(close: pd.Series, fast: int, slow: int) -> np.ndarray:
 def find_pivots(vals: np.ndarray, left: int, right: int, kind: str) -> List[int]:
     """Indexes of confirmed swing pivots (Pine pivothigh/pivotlow equivalent).
 
-    A bar i is a pivot if it is the extreme of window [i-left, i+right].
-    It CONFIRMS at bar i + right (non-repainting).
+    A bar i is a pivot only if it is STRICTLY above (high) / below (low)
+    every other bar in the window [i-left, i+right] — TradingView's
+    ``ta.pivothigh``/``ta.pivotlow`` treat equal extremes as NO pivot, so a
+    tie-tolerant comparison here creates pivots (and then divergences) that
+    never appear on the TV chart. It CONFIRMS at bar i + right.
     """
     out: List[int] = []
     n = len(vals)
     for i in range(left, n - right):
         w = vals[i - left: i + right + 1]
         v = vals[i]
-        if (kind == "high" and v == w.max()) or (kind == "low" and v == w.min()):
+        others = np.delete(w, left)          # window without the centre bar
+        if kind == "high" and v > others.max():
+            out.append(i)
+        elif kind == "low" and v < others.min():
             out.append(i)
     return out
 
@@ -304,6 +359,10 @@ def _signal_card(s: DivergenceSignal) -> str:
               <td style="text-align:right;font-weight:600;">{fmt(s.close)}</td></tr>
           <tr><td style="color:#6b7280;padding:3px 0;">Pivot 1 &rarr; Pivot 2</td>
               <td style="text-align:right;">{fmt(s.pivot1_price)} &rarr; {fmt(s.pivot2_price)}</td></tr>
+          <tr><td style="color:#6b7280;padding:3px 0;">Pivot 1 bar (UTC)</td>
+              <td style="text-align:right;">{s.pivot1_time.strftime("%Y-%m-%d %H:%M")}</td></tr>
+          <tr><td style="color:#6b7280;padding:3px 0;">Pivot 2 bar (UTC)</td>
+              <td style="text-align:right;">{s.pivot2_time.strftime("%Y-%m-%d %H:%M")}</td></tr>
           <tr><td style="color:#6b7280;padding:3px 0;">Span</td>
               <td style="text-align:right;">{s.span} bars</td></tr>
           <tr><td style="color:#6b7280;padding:3px 0;">SMA(200) on {s.timeframe}</td>
