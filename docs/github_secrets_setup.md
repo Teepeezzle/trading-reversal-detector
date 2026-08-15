@@ -6,22 +6,29 @@ The scanners read these secrets:
 |-------------------|--------------------|----------------------------------------------------------|
 | `EMAIL_ADDRESS`   | all scanners       | The Gmail account that sends — and receives — the alert.  |
 | `EMAIL_PASSWORD`  | all scanners       | A Gmail **App Password** (NOT your normal password).      |
-| `ACCOUNT_EQUITY`  | **winners scanner**| Your current total account equity, e.g. `12500`. Drives the position sizing shown in `[V5 WINNERS]` alerts. |
-| `RISK_PCT`        | **winners scanner**| Percent of equity risked per trade: `5` or `10` (also accepts `0.05`/`0.10`). |
+| `BASE_EQUITY`     | **winners scanner**| Your **static base** equity, e.g. `1000`. Risk per trade is a CONSTANT `RISK_PCT × BASE_EQUITY` (no compounding). Drives sizing in `[V5 WINNERS]` alerts and the running paper-P&L ledger. |
+| `RISK_PCT`        | **winners scanner**| Percent of the base risked per trade: `5` or `10` (also accepts `0.05`/`0.10`). |
 
 `EMAIL_ADDRESS` / `EMAIL_PASSWORD` must be set before the first scheduled run,
 otherwise the scan runs successfully but the email step logs
 `EMAIL_ADDRESS / EMAIL_PASSWORD not set — skipping send.` to `logs/email.log`.
 
-`ACCOUNT_EQUITY` / `RISK_PCT` are **optional** — if unset, the winners scanner
+`BASE_EQUITY` / `RISK_PCT` are **optional** — if unset, the winners scanner
 falls back to the `sizing:` defaults in `config/v5_winners_scanner.yaml`
-(equity 1000, risk 5%). Set them as Secrets (not config) so your real equity
-stays private — this repo is **public**.
+(base 1000, risk 5%). Set them as Secrets (not config) so your real equity
+stays private — this repo is **public**. (`ACCOUNT_EQUITY` still works as a
+legacy alias for `BASE_EQUITY`.)
 
-## Updating equity / risk each week
+The winners scanner keeps a running **paper-P&L ledger**: every emitted signal
+is tracked to its SL/TP, realized profit/loss accumulates on top of the static
+base, and each alert shows the running net P&L. When cumulative realized loss
+reaches **40% of the base** (equity ≤ 60% of base), the alert carries a red
+warning banner and a ⚠ subject — it warns, it does not stop.
+
+## Updating base equity / risk each week
 
 1. **Settings → Secrets and variables → Actions**.
-2. Click **Update** next to `ACCOUNT_EQUITY`, enter your new total equity, save.
+2. Click **Update** next to `BASE_EQUITY`, enter your new base, save.
 3. Optionally **Update** `RISK_PCT` (`5` or `10`).
 
 No commit and no code change — the next scheduled winners run uses the new

@@ -21,6 +21,7 @@ leverage is available to reach the risk target. Real brokers cap this.
 """
 from __future__ import annotations
 
+import argparse
 import heapq
 import sys
 from pathlib import Path
@@ -46,11 +47,11 @@ LOOKBACK_DAYS = 30
 FETCH_PERIOD = {"15m": "60d", "1h": "180d"}
 
 
-def build_signals(now):
+def build_signals(now, lookback_days):
     cfg = yaml.safe_load((ROOT / "config" / "v5_winners_scanner.yaml").read_text("utf-8"))
     div_cfg = dict(cfg["divergence"]); div_cfg["aligned_only"] = True
     tf_cfg = cfg["timeframes"]; assets_cfg = cfg["assets"]
-    win_lo = now - pd.Timedelta(days=LOOKBACK_DAYS)
+    win_lo = now - pd.Timedelta(days=lookback_days)
     atr_len = int(div_cfg.get("atr_len", 14))
     cache: dict = {}
     sigs = []
@@ -100,7 +101,10 @@ def build_signals(now):
                 exit_t = (frame.index[xi] + pd.Timedelta(minutes=bar_min)
                           if outcome != "OPEN" else now + pd.Timedelta(days=999))
                 sigs.append(dict(entry_t=s.confirm_close_time, exit_t=exit_t,
-                                 asset=asset, tf=tf, outcome=outcome, R=R))
+                                 asset=asset, tf=tf, outcome=outcome, R=R,
+                                 side=("BUY" if s.direction == "BULL" else "SELL"),
+                                 entry_price=round(E, 6), stop_price=round(sl, 6),
+                                 target_price=round(tp, 6)))
     sigs.sort(key=lambda r: r["entry_t"])
     return sigs
 
@@ -153,28 +157,42 @@ def simulate(sigs, risk_pct):
 
 
 def main():
+    ap = argparse.ArgumentParser(description="Winners risk-based equity sim")
+    ap.add_argument("--days", type=int, default=30, help="lookback window in days")
+    ap.add_argument("--risk", default="5,10",
+                    help="CSV of risk-per-trade percents, e.g. '10' or '5,10'")
+    args = ap.parse_args()
+    risks = [float(x) / 100.0 for x in str(args.risk).split(",")]
+
     now = pd.Timestamp.now(tz="UTC").tz_localize(None)
-    sigs = build_signals(now)
+    sigs = build_signals(now, args.days)
     res = sum(1 for s in sigs if s["outcome"] != "OPEN")
     wr = 100 * sum(1 for s in sigs if s["outcome"] == "TP") / res if res else 0
-    print(f"Winners signals last {LOOKBACK_DAYS}d: {len(sigs)}  (all taken)  "
-          f"resolved WR {wr:.1f}%   start ${START_EQ:.0f}\n")
+
+    # 15m real coverage (history is <=60d so a 90d window is capped)
+    s15 = [s for s in sigs if s["tf"] == "15m"]
+    cov15 = (now - min(s["entry_t"] for s in s15)).days if s15 else 0
+
+    print(f"Winners signals last {args.days}d: {len(sigs)}  (all taken)  "
+          f"resolved WR {wr:.1f}%   start ${START_EQ:.0f}")
+    print(f"(15m history capped at {cov15}d; 1h-4h use the full {args.days}d)\n")
     print(f"{'risk/trade':>11}{'finalEq':>13}{'return':>11}{'maxDD':>9}"
           f"{'40%warns':>10}{'peakRisk':>10}")
     out = {}
-    for rp in (0.05, 0.10):
+    for rp in risks:
         r = simulate(sigs, rp)
         out[rp] = r
         print(f"{rp*100:>9.0f}% ${r['final']:>11,.2f}{r['ret']:>+10.1f}%"
               f"{r['max_dd']:>+8.1f}%{r['warns']:>10}{r['peak_risk']:>9.0f}%")
     print()
     for rp, r in out.items():
-        print(f"At {rp*100:.0f}% risk/trade: $1,000 -> ${r['final']:,.2f} "
-              f"({r['ret']:+.1f}%)  |  max drawdown {r['max_dd']:.1f}%  |  "
-              f"40% warning fired on {r['warns']} of {len(sigs)} signals  |  "
-              f"peak concurrent risk {r['peak_risk']:.0f}% of equity")
-    print(f"\n(Wins {out[0.05]['wins']} / Losses {out[0.05]['losses']} / "
-          f"Open {out[0.05]['opens']} — same trades both rows, only size differs.)")
+        print(f"At {rp*100:.0f}% risk/trade over {args.days}d: $1,000 -> "
+              f"${r['final']:,.2f} ({r['ret']:+.1f}%)  |  max drawdown "
+              f"{r['max_dd']:.1f}%  |  40% warning fired on {r['warns']} of "
+              f"{len(sigs)} signals  |  peak concurrent risk {r['peak_risk']:.0f}%")
+    first = out[risks[0]]
+    print(f"\n(Wins {first['wins']} / Losses {first['losses']} / "
+          f"Open {first['opens']} — same trades all rows, only size differs.)")
     return 0
 
 

@@ -63,8 +63,10 @@ jobs:
         env:
           EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-          # Weekly-updatable position sizing (kept private via Secrets since the
-          # repo is public). If unset, falls back to the config `sizing:` block.
+          # Weekly-updatable STATIC base equity + risk (kept private via Secrets
+          # since the repo is public). BASE_EQUITY is preferred; ACCOUNT_EQUITY
+          # is kept as a legacy alias. If both unset, falls back to config.
+          BASE_EQUITY: ${{ secrets.BASE_EQUITY }}
           ACCOUNT_EQUITY: ${{ secrets.ACCOUNT_EQUITY }}
           RISK_PCT: ${{ secrets.RISK_PCT }}
           PYTHONIOENCODING: "utf-8"

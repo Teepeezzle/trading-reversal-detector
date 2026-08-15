@@ -454,7 +454,7 @@ def _signed_pct(entry: float, level: float) -> str:
 
 
 def _money(v: float) -> str:
-    return f"${v:,.2f}"
+    return f"-${abs(v):,.2f}" if v < 0 else f"${v:,.2f}"
 
 
 def position_sizing(s: DivergenceSignal, equity: float, risk_pct: float):
@@ -496,7 +496,7 @@ def _sizing_rows(s: DivergenceSignal, equity, risk_pct) -> str:
     return f"""
           <tr><td colspan="2" style="padding:10px 0 2px;">
             <div style="border-top:1px solid #e5e7eb;"></div></td></tr>
-          <tr><td style="color:#6b7280;padding:4px 0;">Account equity</td>
+          <tr><td style="color:#6b7280;padding:4px 0;">Base equity (static)</td>
               <td style="text-align:right;">{_money(z['equity'])}</td></tr>
           <tr><td style="color:#6b7280;padding:4px 0;">Risk this trade</td>
               <td style="text-align:right;color:#dc2626;font-weight:600;">
@@ -557,21 +557,64 @@ def _winners_card(s: DivergenceSignal, equity=None, risk_pct=None) -> str:
     </table>"""
 
 
+def _portfolio_block(p) -> str:
+    """Running static-model P&L banner shown at the top of the email."""
+    if not p:
+        return ""
+    warn = p.get("hit_40") or p.get("below_40_now")
+    pnl = p["realized_pnl"]
+    pnl_col = "#16a34a" if pnl >= 0 else "#dc2626"
+    banner = ("" if not warn else
+              '<div style="margin:0 0 14px;padding:12px 14px;background:#fee2e2;'
+              'color:#991b1b;border-radius:6px;font-size:14px;font-weight:600;">'
+              "&#9888; 40% LOSS THRESHOLD REACHED — cumulative realized P&L has "
+              f"hit {_money(p['min_realized_pnl'])} against a {_money(p['base'])} "
+              "base. Review before taking more risk.</div>")
+    return f"""{banner}
+    <table cellpadding="0" cellspacing="0" border="0" role="presentation"
+           style="width:100%;margin-bottom:18px;border:1px solid #e5e7eb;
+                  border-radius:8px;background:#f8fafc;
+                  font-family:Arial,Helvetica,sans-serif;">
+      <tr><td style="padding:12px 16px;">
+        <div style="font-size:13px;color:#6b7280;margin-bottom:6px;">
+          STATIC MODEL &middot; base {_money(p['base'])} &middot;
+          {p['risk_pct']*100:.0f}% risk/trade ({_money(p['risk_pct']*p['base'])} per trade, no compounding)</div>
+        <table style="width:100%;font-size:14px;color:#111827;">
+          <tr><td style="color:#6b7280;padding:3px 0;">Realized net P&amp;L</td>
+              <td style="text-align:right;font-weight:700;color:{pnl_col};">
+                {'+' if pnl >= 0 else ''}{_money(pnl)}
+                <span style="color:#9ca3af;">({p['realized_r']:+.1f}R &middot; {p['net_pct']:+.1f}% of base)</span></td></tr>
+          <tr><td style="color:#6b7280;padding:3px 0;">Tracked equity</td>
+              <td style="text-align:right;font-weight:600;">{_money(p['equity'])}</td></tr>
+          <tr><td style="color:#6b7280;padding:3px 0;">Closed / open</td>
+              <td style="text-align:right;">{p['closed']} closed ({p['wins']}W/{p['losses']}L) &middot; {p['open_count']} open</td></tr>
+          <tr><td style="color:#6b7280;padding:3px 0;">40% loss line</td>
+              <td style="text-align:right;">{_money(0.6*p['base'])} &middot; {'HIT' if p.get('hit_40') else 'not hit'}</td></tr>
+        </table>
+      </td></tr>
+    </table>"""
+
+
 def build_winners_email(signals: List[DivergenceSignal],
-                        equity=None, risk_pct=None) -> Tuple[str, str]:
+                        equity=None, risk_pct=None, portfolio=None
+                        ) -> Tuple[str, str]:
     """(subject, html) for winners-basket signals carrying entry/SL/TP.
 
     If ``equity`` and ``risk_pct`` are given, each card also shows the risk-based
-    position sizing (risk $, notional, gain at target, implied leverage).
+    position sizing. If ``portfolio`` (a v5_ledger.status dict) is given, a
+    running static-model P&L banner is shown at the top with a 40%-loss warning.
     """
     count = len(signals)
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
     tfs = ", ".join(sorted({s.timeframe for s in signals}, key=parse_tf_minutes))
     subject = (f"[V5 WINNERS] {count} trade signal"
                f"{'s' if count != 1 else ''} — {tfs} — {now_str} UTC")
+    if portfolio and (portfolio.get("hit_40") or portfolio.get("below_40_now")):
+        subject = "⚠ " + subject
     cards = "\n".join(_winners_card(s, equity, risk_pct) for s in signals)
+    portfolio_block = _portfolio_block(portfolio)
     sizing_hdr = ("" if equity is None or risk_pct is None else
-                  f" &middot; equity {_money(equity)} &middot; "
+                  f" &middot; base {_money(equity)} &middot; "
                   f"{risk_pct*100:.0f}% risk/trade")
     html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"></head>
 <body style="background:#f3f4f6;margin:0;padding:24px;
@@ -583,6 +626,7 @@ def build_winners_email(signals: List[DivergenceSignal],
     <p style="color:#6b7280;font-size:14px;margin:0 0 24px;">
       {now_str} UTC &middot; {count} signal{'s' if count != 1 else ''}
       &middot; 5-asset winners basket &middot; SL 1.5&times;ATR / TP 3&times;ATR (1:2){sizing_hdr}</p>
+    {portfolio_block}
     {cards}
     <p style="color:#9ca3af;font-size:12px;text-align:center;margin-top:20px;">
       Filtered subset (BTC/ETH/DOGE/XAUUSD/NAS100, 15m-4h) that showed positive

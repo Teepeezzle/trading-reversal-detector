@@ -32,14 +32,18 @@ divergence:
 
 freshness_buffer_minutes: 45
 
-# Position sizing shown in each alert. These are FALLBACK DEFAULTS only —
-# the live scanner prefers the ACCOUNT_EQUITY and RISK_PCT GitHub Secrets so
-# your real equity never appears in this PUBLIC repo. Update the Secrets
-# weekly (Settings -> Secrets and variables -> Actions); no commit needed.
-#   RISK_PCT accepts "5" / "10" (percent) or "0.05" / "0.10" (fraction).
+# STATIC-model position sizing shown in each alert. Risk per trade is a
+# CONSTANT dollar amount = risk_pct x base equity (NO compounding). These are
+# FALLBACK DEFAULTS only — the live scanner prefers GitHub Secrets so your real
+# equity never appears in this PUBLIC repo. Update weekly in Settings ->
+# Secrets and variables -> Actions; no commit needed.
+#   BASE_EQUITY  (preferred) / ACCOUNT_EQUITY (legacy alias): static base $.
+#   RISK_PCT: "5" / "10" (percent) or "0.05" / "0.10" (fraction).
+# The scanner also keeps a running paper-P&L ledger (state/v5_winners_ledger.json)
+# and warns in the alert when cumulative realized loss reaches 40% of the base.
 sizing:
-  account_equity: 1000       # placeholder; real value lives in ACCOUNT_EQUITY secret
-  risk_pct: 5                # percent of equity risked per trade (SL = this loss)
+  account_equity: 1000       # placeholder; real value lives in BASE_EQUITY secret
+  risk_pct: 5                # percent of base risked per trade (SL = this loss)
 
 assets:
   BTCUSD:  {ticker: BTC-USD, anchor: utc}

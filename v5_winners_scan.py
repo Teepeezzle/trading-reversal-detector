@@ -44,35 +44,45 @@ from src.v5_divergence import (
     save_state,
 )
 from src.email_alerts import _send_html_email
+from src import v5_ledger
 
 ROOT = Path(__file__).resolve().parent
 DEFAULT_CONFIG = ROOT / "config" / "v5_winners_scanner.yaml"
 STATE_PATH = ROOT / "state" / "v5_winners_alerted.json"
+LEDGER_PATH = ROOT / "state" / "v5_winners_ledger.json"
 EMAIL_LOG = ROOT / "logs" / "email.log"
 
 
 def resolve_sizing(cfg: dict) -> tuple:
     """Return (equity, risk_pct_fraction) from env (GitHub Secrets) or config.
 
-    ACCOUNT_EQUITY: plain number, e.g. "12500".
+    Static base equity: BASE_EQUITY (preferred) or ACCOUNT_EQUITY (legacy
+    alias), plain number e.g. "1000". This is the FIXED base — position size
+    never compounds off it.
     RISK_PCT: "5"/"10" (percent) OR "0.05"/"0.10" (fraction) — normalised to a
     fraction. Missing/blank env falls back to the config `sizing:` defaults so
     the scanner never crashes when a secret is unset.
     """
     sizing = cfg.get("sizing", {}) or {}
 
-    def _num(env_key, default):
+    def _num(env_key):
         raw = os.environ.get(env_key, "")
         if raw is None or str(raw).strip() == "":
-            return float(default)
+            return None
         try:
             return float(str(raw).strip())
         except ValueError:
-            print(f"WARN: {env_key}={raw!r} not numeric; using default {default}")
-            return float(default)
+            print(f"WARN: {env_key}={raw!r} not numeric; ignoring")
+            return None
 
-    equity = _num("ACCOUNT_EQUITY", sizing.get("account_equity", 1000))
-    risk_raw = _num("RISK_PCT", sizing.get("risk_pct", 5))
+    equity = _num("BASE_EQUITY")
+    if equity is None:
+        equity = _num("ACCOUNT_EQUITY")
+    if equity is None:
+        equity = float(sizing.get("account_equity", 1000))
+    risk_raw = _num("RISK_PCT")
+    if risk_raw is None:
+        risk_raw = float(sizing.get("risk_pct", 5))
     risk_pct = risk_raw / 100.0 if risk_raw > 1 else risk_raw   # 5 -> 0.05
     return equity, risk_pct
 
@@ -193,6 +203,34 @@ def main() -> int:
 
     save_state(STATE_PATH, state)
 
+    # ---- Static-model ledger: reconcile open trades, register new ones ------
+    # Best-effort — a data/ledger hiccup must never block an alert.
+    portfolio = None
+    risk_dollars = risk_pct * equity
+    try:
+        led_cache: Dict = {}
+
+        def fetch_1h(tk):
+            if tk not in led_cache:
+                led_cache[tk] = fetch_ohlcv(tk, "1h", "120d")
+            return led_cache[tk]
+
+        ledger = v5_ledger.load_ledger(LEDGER_PATH)
+        ledger, closed = v5_ledger.reconcile(ledger, fetch_1h, now)
+        if closed:
+            for c in closed:
+                print(f"  ledger close {c['asset']:<8} {c['tf']:<4} "
+                      f"{c['outcome']:<6} {c['R']:+.0f}R  {c['pnl']:+.2f}")
+        if all_new:
+            v5_ledger.register(ledger, all_new, risk_dollars)
+        v5_ledger.save_ledger(LEDGER_PATH, ledger)
+        portfolio = v5_ledger.status(ledger, equity, risk_pct)
+        print(f"Ledger: realized {portfolio['realized_pnl']:+.2f} "
+              f"({portfolio['realized_r']:+.1f}R)  equity ${portfolio['equity']:,.2f}  "
+              f"open {portfolio['open_count']}  hit-40%={portfolio['hit_40']}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"WARN: ledger update failed ({exc}); emailing without P&L block")
+
     if not all_new:
         print("No new winners signals this run.")
         return 0
@@ -202,7 +240,8 @@ def main() -> int:
         print("--no-email set; skipping send.")
         return 0
 
-    subject, html = build_winners_email(all_new, equity=equity, risk_pct=risk_pct)
+    subject, html = build_winners_email(all_new, equity=equity, risk_pct=risk_pct,
+                                        portfolio=portfolio)
     ok = _send_html_email(
         subject, html,
         os.environ.get("EMAIL_ADDRESS", ""),
