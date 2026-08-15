@@ -1,0 +1,75 @@
+name: V5 Winners Scan (5 assets, trade alerts)
+
+# Independent second scanner for the positive-expectancy winners basket
+# (BTC/ETH/DOGE/XAUUSD/NAS100 on 15m/1h/2h/3h/4h). Emits entry/stop/target.
+#
+# ISOLATION FROM THE MAIN SCANNER (so neither can block or corrupt the other):
+#   * Separate workflow file + separate concurrency group -> the two run in
+#     PARALLEL on separate runners; one running never prevents the other.
+#   * Separate dedup state file (state/v5_winners_alerted.json) and a separate
+#     cache-key namespace (v5-winners-state-*) -> neither reads or overwrites
+#     the other's alert history.
+#   * Same */30 cron: both may fire at :00, but they execute independently.
+#
+# Routing (v5_winners_scan.py, same clock logic as the main scanner):
+#   :00 and :30 -> 15m ;  :00 only -> 1h, 2h, 3h, 4h
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      timeframes:
+        description: "'auto' (route by clock), 'all', or CSV e.g. '15m,4h'"
+        required: false
+        default: "all"
+
+# Distinct group from the main scanner — serialises only THIS workflow's own
+# overlapping runs, and never interacts with v5-divergence-scan.
+concurrency:
+  group: v5-winners-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    name: Scan winners basket and email trade signals
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Own dedup namespace — never collides with the main scanner's cache.
+      - name: Restore winners dedup state
+        uses: actions/cache/restore@v5
+        with:
+          path: state
+          key: v5-winners-state-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            v5-winners-state-
+
+      - name: Run V5 winners scan
+        env:
+          EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          PYTHONIOENCODING: "utf-8"
+        run: |
+          python v5_winners_scan.py --timeframes "${{ github.event.inputs.timeframes || 'auto' }}"
+
+      - name: Save winners dedup state
+        if: always()
+        uses: actions/cache/save@v5
+        with:
+          path: state
+          key: v5-winners-state-${{ github.run_id }}-${{ github.run_attempt }}

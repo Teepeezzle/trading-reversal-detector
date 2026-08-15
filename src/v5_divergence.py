@@ -67,10 +67,15 @@ class DivergenceSignal:
     pivot2_time: pd.Timestamp
     macd1: float
     macd2: float
-    close: float          # close of the confirmation bar
+    close: float          # close of the confirmation bar (= trade ENTRY)
     sma: float            # SMA(200) at the confirmation bar
     confirm_time: pd.Timestamp   # START of the confirmation bar (UTC)
     bar_minutes: int
+    # Optional SCALPR trade levels — populated by attach_trade_levels() for the
+    # winners scanner; left None for the context-only divergence scanner.
+    atr: Optional[float] = None
+    stop: Optional[float] = None
+    target: Optional[float] = None
 
     @property
     def confirm_close_time(self) -> pd.Timestamp:
@@ -265,6 +270,42 @@ def detect_divergences(df: pd.DataFrame, asset: str, ticker: str,
     return signals
 
 
+def atr_wilder(df: pd.DataFrame, n: int = 14) -> np.ndarray:
+    """Wilder's ATR (RMA of true range) — matches Pine ``ta.atr`` / the backtest."""
+    h, l, c = df["High"], df["Low"], df["Close"]
+    pc = c.shift()
+    tr = pd.concat([h - l, (h - pc).abs(), (l - pc).abs()], axis=1).max(axis=1)
+    return tr.ewm(alpha=1.0 / n, adjust=False).mean().to_numpy()
+
+
+def attach_trade_levels(signals: List[DivergenceSignal], frame: pd.DataFrame,
+                        atr_len: int, sl_mult: float, tp_mult: float
+                        ) -> List[DivergenceSignal]:
+    """Set ATR / stop / target on each signal (SCALPR model).
+
+    Entry is the confirmation-bar close (already stored as ``signal.close``):
+      BULL/BUY  -> stop = close - sl_mult*ATR,  target = close + tp_mult*ATR
+      BEAR/SELL -> stop = close + sl_mult*ATR,  target = close - tp_mult*ATR
+    Signals whose confirmation bar has no valid ATR are returned unchanged
+    (stop/target stay None) so the caller can drop them.
+    """
+    atr = atr_wilder(frame, atr_len)
+    pos = {t: k for k, t in enumerate(frame.index)}
+    for s in signals:
+        ci = pos.get(s.confirm_time)
+        if ci is None or not np.isfinite(atr[ci]) or atr[ci] <= 0:
+            continue
+        a = float(atr[ci])
+        s.atr = a
+        if s.direction == "BULL":
+            s.stop = s.close - sl_mult * a
+            s.target = s.close + tp_mult * a
+        else:
+            s.stop = s.close + sl_mult * a
+            s.target = s.close - tp_mult * a
+    return signals
+
+
 def filter_fresh(signals: List[DivergenceSignal], now: pd.Timestamp,
                  scan_every_minutes: int, buffer_minutes: int
                  ) -> List[DivergenceSignal]:
@@ -399,5 +440,86 @@ def build_divergence_email(signals: List[DivergenceSignal]) -> Tuple[str, str]:
     <p style="color:#9ca3af;font-size:12px;text-align:center;margin-top:20px;">
       Context signal only — divergence+trend alignment showed no standalone
       OOS edge in this project's testing. Not financial advice.</p>
+  </td></tr></table></body></html>"""
+    return subject, html
+
+
+# ------------------------------------------------ WINNERS email (with SL/TP)
+
+
+def _signed_pct(entry: float, level: float) -> str:
+    if entry == 0:
+        return "+0.00%"
+    return f"{(level - entry) / entry * 100.0:+.2f}%"
+
+
+def _winners_card(s: DivergenceSignal) -> str:
+    is_buy = s.direction == "BULL"
+    col = "#16a34a" if is_buy else "#dc2626"
+    arrow = "&#9650;" if is_buy else "&#9660;"      # ▲ / ▼
+    side = "BUY" if is_buy else "SELL"
+    fmt = lambda v: _fmt_price(v, s.ticker)  # noqa: E731
+    entry = s.close
+    sl_txt = fmt(s.stop) if s.stop is not None else "n/a"
+    tp_txt = fmt(s.target) if s.target is not None else "n/a"
+    sl_pct = _signed_pct(entry, s.stop) if s.stop is not None else ""
+    tp_pct = _signed_pct(entry, s.target) if s.target is not None else ""
+    return f"""
+    <table cellpadding="0" cellspacing="0" border="0" role="presentation"
+           style="width:100%;margin-bottom:18px;border:1px solid #e5e7eb;
+                  border-radius:8px;background:#fff;
+                  font-family:Arial,Helvetica,sans-serif;">
+      <tr><td style="background:{col};color:#fff;padding:14px 18px;
+                     border-radius:8px 8px 0 0;">
+        <div style="font-size:18px;font-weight:bold;">
+          {arrow} {side} &middot; {s.asset} &middot; {s.timeframe}</div>
+        <div style="font-size:13px;margin-top:4px;">
+          {s.direction} divergence &middot; ALIGNED with {s.regime}
+          &middot; R:R 1:2</div>
+      </td></tr>
+      <tr><td style="padding:16px 18px;font-size:14px;color:#111827;">
+        <table style="width:100%;font-size:14px;">
+          <tr><td style="color:#6b7280;padding:4px 0;">Entry (bar close)</td>
+              <td style="text-align:right;font-weight:700;">{fmt(entry)}</td></tr>
+          <tr><td style="color:#6b7280;padding:4px 0;">Stop loss</td>
+              <td style="text-align:right;color:#dc2626;font-weight:600;">
+                {sl_txt} <span style="color:#9ca3af;">({sl_pct})</span></td></tr>
+          <tr><td style="color:#6b7280;padding:4px 0;">Target</td>
+              <td style="text-align:right;color:#16a34a;font-weight:600;">
+                {tp_txt} <span style="color:#9ca3af;">({tp_pct})</span></td></tr>
+          <tr><td style="color:#6b7280;padding:4px 0;">Confirmed (UTC)</td>
+              <td style="text-align:right;">{s.confirm_close_time:%Y-%m-%d %H:%M}</td></tr>
+          <tr><td style="color:#6b7280;padding:4px 0;">ATR / span</td>
+              <td style="text-align:right;">{fmt(s.atr) if s.atr else 'n/a'} / {s.span} bars</td></tr>
+          <tr><td style="color:#6b7280;padding:4px 0;">yfinance ticker</td>
+              <td style="text-align:right;color:#6b7280;">{s.ticker}</td></tr>
+        </table>
+      </td></tr>
+    </table>"""
+
+
+def build_winners_email(signals: List[DivergenceSignal]) -> Tuple[str, str]:
+    """(subject, html) for winners-basket signals carrying entry/SL/TP."""
+    count = len(signals)
+    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+    tfs = ", ".join(sorted({s.timeframe for s in signals}, key=parse_tf_minutes))
+    subject = (f"[V5 WINNERS] {count} trade signal"
+               f"{'s' if count != 1 else ''} — {tfs} — {now_str} UTC")
+    cards = "\n".join(_winners_card(s) for s in signals)
+    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="background:#f3f4f6;margin:0;padding:24px;
+             font-family:Arial,Helvetica,sans-serif;">
+  <table cellpadding="0" cellspacing="0" border="0"
+         style="max-width:680px;margin:0 auto;"><tr><td>
+    <h1 style="color:#111827;font-size:22px;margin:0 0 6px;">
+      V5 WINNERS — trade alerts</h1>
+    <p style="color:#6b7280;font-size:14px;margin:0 0 24px;">
+      {now_str} UTC &middot; {count} signal{'s' if count != 1 else ''}
+      &middot; 5-asset winners basket &middot; SL 1.5&times;ATR / TP 3&times;ATR (1:2)</p>
+    {cards}
+    <p style="color:#9ca3af;font-size:12px;text-align:center;margin-top:20px;">
+      Filtered subset (BTC/ETH/DOGE/XAUUSD/NAS100, 15m-4h) that showed positive
+      expectancy over 30d (+0.39R) and 90d (+0.33R) in backtest. Small samples on
+      higher TFs. Not financial advice.</p>
   </td></tr></table></body></html>"""
     return subject, html

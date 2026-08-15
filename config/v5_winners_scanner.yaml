@@ -1,0 +1,67 @@
+# =====================================================================
+# V5 WINNERS scanner — configuration
+#
+# Separate, higher-conviction scanner. Runs ALONGSIDE the full v5 scanner
+# with its own email subject ([V5 WINNERS]), its own dedup state file, and
+# its own workflow — the two never block each other.
+#
+# Scope is the 5 positive-expectancy assets on 5 timeframes, the subset that
+# backtested to +0.39R (30d) and +0.33R (90d). Detection rules are identical
+# to the main scanner; this one ALSO emits entry/stop/target on each alert.
+#
+# TO ADD/REMOVE AN ASSET: edit `assets:` — {ticker, anchor}. Same rules as
+#   the main config (anchor utc for crypto, ny17 for FX/metals/indices).
+# TO ADD A TIMEFRAME: add a block under `timeframes:` (multiple of 30 for
+#   scan_every_minutes so the */30 cron picks it up).
+# =====================================================================
+
+divergence:
+  left_bars: 2
+  right_bars: 2
+  macd_fast: 12
+  macd_slow: 26
+  macd_signal: 9
+  trend_sma: 200
+  span_min: 6
+  span_max: 50
+  aligned_only: true
+  # SCALPR trade levels attached to every winners alert
+  atr_len: 14
+  sl_atr_mult: 1.5      # stop = 1.5 x ATR   (= 1R)
+  tp_atr_mult: 3.0      # target = 3.0 x ATR (= 2R, 1:2 R:R)
+
+freshness_buffer_minutes: 45
+
+assets:
+  BTCUSD:  {ticker: BTC-USD, anchor: utc}
+  ETHUSD:  {ticker: ETH-USD, anchor: utc}
+  DOGEUSD: {ticker: DOGE-USD, anchor: utc}
+  XAUUSD:  {ticker: GC=F,    anchor: ny17}  # gold futures — proxy for spot XAUUSD
+  NAS100:  {ticker: NQ=F,    anchor: ny17}
+
+timeframes:
+  15m:
+    source_interval: 15m
+    resample: null
+    period: 30d
+    scan_every_minutes: 30
+  1h:
+    source_interval: 1h
+    resample: null
+    period: 120d
+    scan_every_minutes: 60
+  2h:
+    source_interval: 1h
+    resample: 2h
+    period: 120d
+    scan_every_minutes: 60
+  3h:
+    source_interval: 1h
+    resample: 3h
+    period: 150d
+    scan_every_minutes: 60
+  4h:
+    source_interval: 1h
+    resample: 4h
+    period: 180d
+    scan_every_minutes: 60
