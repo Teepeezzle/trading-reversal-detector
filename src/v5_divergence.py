@@ -453,7 +453,65 @@ def _signed_pct(entry: float, level: float) -> str:
     return f"{(level - entry) / entry * 100.0:+.2f}%"
 
 
-def _winners_card(s: DivergenceSignal) -> str:
+def _money(v: float) -> str:
+    return f"${v:,.2f}"
+
+
+def position_sizing(s: DivergenceSignal, equity: float, risk_pct: float):
+    """Size a position so hitting the 1.5xATR stop loses risk_pct of equity.
+
+    Returns a dict (or None if not computable):
+      risk_dollars = risk_pct * equity           (loss if stop hit)
+      notional     = risk_dollars * entry / stop-distance   ($ exposure)
+      gain_dollars = 2 * risk_dollars             (at the 3xATR target, 1:2)
+      leverage     = notional / equity            (implied leverage on equity)
+    """
+    entry = s.close
+    if s.stop is None or entry <= 0 or equity <= 0 or risk_pct <= 0:
+        return None
+    stop_dist = abs(entry - s.stop)
+    if stop_dist <= 0:
+        return None
+    risk_dollars = risk_pct * equity
+    notional = risk_dollars * entry / stop_dist
+    return dict(equity=equity, risk_pct=risk_pct, risk_dollars=risk_dollars,
+                notional=notional, gain_dollars=2.0 * risk_dollars,
+                leverage=notional / equity)
+
+
+def _sizing_rows(s: DivergenceSignal, equity, risk_pct) -> str:
+    """HTML rows for the position-sizing block (empty if equity/risk absent)."""
+    if equity is None or risk_pct is None:
+        return ""
+    z = position_sizing(s, equity, risk_pct)
+    if z is None:
+        return ""
+    rp = z["risk_pct"] * 100
+    big = z["risk_pct"] > 0.15      # flag an unusually large per-trade risk
+    note = ("" if not big else
+            '<div style="margin-top:6px;padding:8px 10px;background:#fef3c7;'
+            'color:#92400e;border-radius:4px;font-size:12px;">'
+            f"⚠ Per-trade risk is {rp:.0f}% of equity — larger than the "
+            "5-10% modelled. Check this is intended.</div>")
+    return f"""
+          <tr><td colspan="2" style="padding:10px 0 2px;">
+            <div style="border-top:1px solid #e5e7eb;"></div></td></tr>
+          <tr><td style="color:#6b7280;padding:4px 0;">Account equity</td>
+              <td style="text-align:right;">{_money(z['equity'])}</td></tr>
+          <tr><td style="color:#6b7280;padding:4px 0;">Risk this trade</td>
+              <td style="text-align:right;color:#dc2626;font-weight:600;">
+                {_money(z['risk_dollars'])} <span style="color:#9ca3af;">({rp:.0f}% of equity)</span></td></tr>
+          <tr><td style="color:#6b7280;padding:4px 0;">Position size</td>
+              <td style="text-align:right;font-weight:700;">
+                {_money(z['notional'])} notional
+                <span style="color:#9ca3af;">(~{z['leverage']:.1f}&times; equity)</span></td></tr>
+          <tr><td style="color:#6b7280;padding:4px 0;">Gain at target</td>
+              <td style="text-align:right;color:#16a34a;font-weight:600;">
+                +{_money(z['gain_dollars'])} <span style="color:#9ca3af;">(+2R)</span></td></tr>
+          <tr><td colspan="2" style="padding:2px 0 0;">{note}</td></tr>"""
+
+
+def _winners_card(s: DivergenceSignal, equity=None, risk_pct=None) -> str:
     is_buy = s.direction == "BULL"
     col = "#16a34a" if is_buy else "#dc2626"
     arrow = "&#9650;" if is_buy else "&#9660;"      # ▲ / ▼
@@ -464,6 +522,7 @@ def _winners_card(s: DivergenceSignal) -> str:
     tp_txt = fmt(s.target) if s.target is not None else "n/a"
     sl_pct = _signed_pct(entry, s.stop) if s.stop is not None else ""
     tp_pct = _signed_pct(entry, s.target) if s.target is not None else ""
+    sizing_rows = _sizing_rows(s, equity, risk_pct)
     return f"""
     <table cellpadding="0" cellspacing="0" border="0" role="presentation"
            style="width:100%;margin-bottom:18px;border:1px solid #e5e7eb;
@@ -492,20 +551,28 @@ def _winners_card(s: DivergenceSignal) -> str:
           <tr><td style="color:#6b7280;padding:4px 0;">ATR / span</td>
               <td style="text-align:right;">{fmt(s.atr) if s.atr else 'n/a'} / {s.span} bars</td></tr>
           <tr><td style="color:#6b7280;padding:4px 0;">yfinance ticker</td>
-              <td style="text-align:right;color:#6b7280;">{s.ticker}</td></tr>
+              <td style="text-align:right;color:#6b7280;">{s.ticker}</td></tr>{sizing_rows}
         </table>
       </td></tr>
     </table>"""
 
 
-def build_winners_email(signals: List[DivergenceSignal]) -> Tuple[str, str]:
-    """(subject, html) for winners-basket signals carrying entry/SL/TP."""
+def build_winners_email(signals: List[DivergenceSignal],
+                        equity=None, risk_pct=None) -> Tuple[str, str]:
+    """(subject, html) for winners-basket signals carrying entry/SL/TP.
+
+    If ``equity`` and ``risk_pct`` are given, each card also shows the risk-based
+    position sizing (risk $, notional, gain at target, implied leverage).
+    """
     count = len(signals)
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
     tfs = ", ".join(sorted({s.timeframe for s in signals}, key=parse_tf_minutes))
     subject = (f"[V5 WINNERS] {count} trade signal"
                f"{'s' if count != 1 else ''} — {tfs} — {now_str} UTC")
-    cards = "\n".join(_winners_card(s) for s in signals)
+    cards = "\n".join(_winners_card(s, equity, risk_pct) for s in signals)
+    sizing_hdr = ("" if equity is None or risk_pct is None else
+                  f" &middot; equity {_money(equity)} &middot; "
+                  f"{risk_pct*100:.0f}% risk/trade")
     html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"></head>
 <body style="background:#f3f4f6;margin:0;padding:24px;
              font-family:Arial,Helvetica,sans-serif;">
@@ -515,7 +582,7 @@ def build_winners_email(signals: List[DivergenceSignal]) -> Tuple[str, str]:
       V5 WINNERS — trade alerts</h1>
     <p style="color:#6b7280;font-size:14px;margin:0 0 24px;">
       {now_str} UTC &middot; {count} signal{'s' if count != 1 else ''}
-      &middot; 5-asset winners basket &middot; SL 1.5&times;ATR / TP 3&times;ATR (1:2)</p>
+      &middot; 5-asset winners basket &middot; SL 1.5&times;ATR / TP 3&times;ATR (1:2){sizing_hdr}</p>
     {cards}
     <p style="color:#9ca3af;font-size:12px;text-align:center;margin-top:20px;">
       Filtered subset (BTC/ETH/DOGE/XAUUSD/NAS100, 15m-4h) that showed positive

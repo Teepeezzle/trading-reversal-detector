@@ -51,6 +51,32 @@ STATE_PATH = ROOT / "state" / "v5_winners_alerted.json"
 EMAIL_LOG = ROOT / "logs" / "email.log"
 
 
+def resolve_sizing(cfg: dict) -> tuple:
+    """Return (equity, risk_pct_fraction) from env (GitHub Secrets) or config.
+
+    ACCOUNT_EQUITY: plain number, e.g. "12500".
+    RISK_PCT: "5"/"10" (percent) OR "0.05"/"0.10" (fraction) — normalised to a
+    fraction. Missing/blank env falls back to the config `sizing:` defaults so
+    the scanner never crashes when a secret is unset.
+    """
+    sizing = cfg.get("sizing", {}) or {}
+
+    def _num(env_key, default):
+        raw = os.environ.get(env_key, "")
+        if raw is None or str(raw).strip() == "":
+            return float(default)
+        try:
+            return float(str(raw).strip())
+        except ValueError:
+            print(f"WARN: {env_key}={raw!r} not numeric; using default {default}")
+            return float(default)
+
+    equity = _num("ACCOUNT_EQUITY", sizing.get("account_equity", 1000))
+    risk_raw = _num("RISK_PCT", sizing.get("risk_pct", 5))
+    risk_pct = risk_raw / 100.0 if risk_raw > 1 else risk_raw   # 5 -> 0.05
+    return equity, risk_pct
+
+
 def due_timeframes(tf_cfg: Dict[str, dict], now: datetime) -> List[str]:
     """Timeframes whose cadence divides the current 30-minute slot."""
     slot = (now.hour * 60 + now.minute) // 30 * 30
@@ -115,6 +141,8 @@ def main() -> int:
     tf_cfg = cfg["timeframes"]
     assets: Dict[str, dict] = cfg["assets"]
     buffer_min = int(cfg.get("freshness_buffer_minutes", 45))
+    equity, risk_pct = resolve_sizing(cfg)
+    print(f"Sizing: equity ${equity:,.2f}  risk {risk_pct*100:.0f}%/trade")
 
     if args.assets:
         wanted = [a.strip() for a in args.assets.split(",")]
@@ -174,7 +202,7 @@ def main() -> int:
         print("--no-email set; skipping send.")
         return 0
 
-    subject, html = build_winners_email(all_new)
+    subject, html = build_winners_email(all_new, equity=equity, risk_pct=risk_pct)
     ok = _send_html_email(
         subject, html,
         os.environ.get("EMAIL_ADDRESS", ""),

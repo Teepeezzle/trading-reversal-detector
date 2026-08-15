@@ -1,15 +1,31 @@
 # GitHub Secrets Setup
 
-The `daily_scan.yml` workflow reads two secrets:
+The scanners read these secrets:
 
-| Secret           | What it is                                               |
-|------------------|----------------------------------------------------------|
-| `EMAIL_ADDRESS`  | The Gmail account that sends — and receives — the alert. |
-| `EMAIL_PASSWORD` | A Gmail **App Password** (NOT your normal password).     |
+| Secret            | Used by            | What it is                                               |
+|-------------------|--------------------|----------------------------------------------------------|
+| `EMAIL_ADDRESS`   | all scanners       | The Gmail account that sends — and receives — the alert.  |
+| `EMAIL_PASSWORD`  | all scanners       | A Gmail **App Password** (NOT your normal password).      |
+| `ACCOUNT_EQUITY`  | **winners scanner**| Your current total account equity, e.g. `12500`. Drives the position sizing shown in `[V5 WINNERS]` alerts. |
+| `RISK_PCT`        | **winners scanner**| Percent of equity risked per trade: `5` or `10` (also accepts `0.05`/`0.10`). |
 
-Both must be set before the first scheduled run, otherwise the scan will run
-successfully but the email step will log
+`EMAIL_ADDRESS` / `EMAIL_PASSWORD` must be set before the first scheduled run,
+otherwise the scan runs successfully but the email step logs
 `EMAIL_ADDRESS / EMAIL_PASSWORD not set — skipping send.` to `logs/email.log`.
+
+`ACCOUNT_EQUITY` / `RISK_PCT` are **optional** — if unset, the winners scanner
+falls back to the `sizing:` defaults in `config/v5_winners_scanner.yaml`
+(equity 1000, risk 5%). Set them as Secrets (not config) so your real equity
+stays private — this repo is **public**.
+
+## Updating equity / risk each week
+
+1. **Settings → Secrets and variables → Actions**.
+2. Click **Update** next to `ACCOUNT_EQUITY`, enter your new total equity, save.
+3. Optionally **Update** `RISK_PCT` (`5` or `10`).
+
+No commit and no code change — the next scheduled winners run uses the new
+values automatically, and your equity never appears anywhere public.
 
 ---
 

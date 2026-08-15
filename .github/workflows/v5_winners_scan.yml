@@ -63,6 +63,10 @@ jobs:
         env:
           EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          # Weekly-updatable position sizing (kept private via Secrets since the
+          # repo is public). If unset, falls back to the config `sizing:` block.
+          ACCOUNT_EQUITY: ${{ secrets.ACCOUNT_EQUITY }}
+          RISK_PCT: ${{ secrets.RISK_PCT }}
           PYTHONIOENCODING: "utf-8"
         run: |
           python v5_winners_scan.py --timeframes "${{ github.event.inputs.timeframes || 'auto' }}"

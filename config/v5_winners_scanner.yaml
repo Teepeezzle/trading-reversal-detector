@@ -32,6 +32,15 @@ divergence:
 
 freshness_buffer_minutes: 45
 
+# Position sizing shown in each alert. These are FALLBACK DEFAULTS only —
+# the live scanner prefers the ACCOUNT_EQUITY and RISK_PCT GitHub Secrets so
+# your real equity never appears in this PUBLIC repo. Update the Secrets
+# weekly (Settings -> Secrets and variables -> Actions); no commit needed.
+#   RISK_PCT accepts "5" / "10" (percent) or "0.05" / "0.10" (fraction).
+sizing:
+  account_equity: 1000       # placeholder; real value lives in ACCOUNT_EQUITY secret
+  risk_pct: 5                # percent of equity risked per trade (SL = this loss)
+
 assets:
   BTCUSD:  {ticker: BTC-USD, anchor: utc}
   ETHUSD:  {ticker: ETH-USD, anchor: utc}
