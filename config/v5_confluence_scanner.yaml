@@ -1,0 +1,59 @@
+# =====================================================================
+# V5 CONFLUENCE scanner — configuration
+#
+# The 3-way setup validated in backtest (adding TD did NOT help):
+#   aligned V5 divergence + DRS support/resistance (any TF, within 30d) +
+#   200-SMA trend, on a robustness-checked, direction-specific shortlist.
+#   Exit: SL 1.5xATR / TP 4.0xATR (1:2.67).
+#
+# Runs ALONGSIDE the other scanners with full isolation (own workflow,
+# concurrency group, dedup + ledger state). Emails carry [V5 CONFLUENCE].
+#
+# Per-asset `dirs` restricts to the direction(s) that were positive in BOTH
+# the 3-way and 4-way tests:
+#   buys : BTCUSD, NZDJPY, USDJPY, GBPUSD
+#   sells: DOGEUSD, XAUUSD, EURUSD, BTCUSD
+# =====================================================================
+
+divergence:
+  left_bars: 2
+  right_bars: 2
+  macd_fast: 12
+  macd_slow: 26
+  macd_signal: 9
+  trend_sma: 200
+  span_min: 6
+  span_max: 50
+  aligned_only: true
+  atr_len: 14
+  sl_atr_mult: 1.5      # stop   = 1.5 x ATR (= 1R)
+  tp_atr_mult: 4.0      # target = 4.0 x ATR (= 2.667R, 1:2.67)
+
+drs:
+  zone_max_days: 30     # a DRS red level is "active" this long after it forms
+  buffer_atr: 0.5       # "at/near" red = within 0.5xATR of the red level
+
+freshness_buffer_minutes: 45
+
+# Static-base sizing (private via BASE_EQUITY / RISK_PCT secrets; repo is public)
+sizing:
+  account_equity: 1000
+  risk_pct: 5
+
+assets:
+  BTCUSD:  {ticker: BTC-USD,  anchor: utc,  dirs: [buy, sell]}
+  NZDJPY:  {ticker: NZDJPY=X, anchor: ny17, dirs: [buy]}
+  USDJPY:  {ticker: USDJPY=X, anchor: ny17, dirs: [buy]}
+  GBPUSD:  {ticker: GBPUSD=X, anchor: ny17, dirs: [buy]}
+  DOGEUSD: {ticker: DOGE-USD, anchor: utc,  dirs: [sell]}
+  XAUUSD:  {ticker: GC=F,     anchor: ny17, dirs: [sell]}  # gold futures proxy
+  EURUSD:  {ticker: EURUSD=X, anchor: ny17, dirs: [sell]}
+
+timeframes:
+  15m: {source_interval: 15m, resample: null,  period: 30d,  scan_every_minutes: 30}
+  30m: {source_interval: 30m, resample: null,  period: 60d,  scan_every_minutes: 60}
+  45m: {source_interval: 15m, resample: 45min, period: 60d,  scan_every_minutes: 60}
+  1h:  {source_interval: 1h,  resample: null,  period: 120d, scan_every_minutes: 60}
+  2h:  {source_interval: 1h,  resample: 2h,    period: 120d, scan_every_minutes: 60}
+  3h:  {source_interval: 1h,  resample: 3h,    period: 150d, scan_every_minutes: 60}
+  4h:  {source_interval: 1h,  resample: 4h,    period: 180d, scan_every_minutes: 60}
