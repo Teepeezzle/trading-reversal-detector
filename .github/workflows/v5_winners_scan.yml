@@ -15,7 +15,9 @@ name: V5 Winners Scan (5 assets, trade alerts)
 #   :00 and :30 -> 15m ;  :00 only -> 1h, 2h, 3h, 4h
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    # Off-peak, staggered from the other scanners to dodge GitHub's top-of-hour
+    # cron congestion. :11 -> full scan (all TFs), :41 -> 15m-only.
+    - cron: "11,41 * * * *"
   workflow_dispatch:
     inputs:
       timeframes:

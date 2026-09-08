@@ -11,7 +11,9 @@ name: V5 Divergence Scan (multi-timeframe)
 # re-derives the last CLOSED bar from wall-clock, so delays don't break it.
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    # Off-peak, staggered from the other scanners to dodge GitHub's top-of-hour
+    # cron congestion. :03 -> full scan (all TFs), :33 -> 15m-only.
+    - cron: "3,33 * * * *"
   workflow_dispatch:
     inputs:
       timeframes:

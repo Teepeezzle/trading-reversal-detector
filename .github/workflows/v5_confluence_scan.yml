@@ -9,7 +9,9 @@ name: V5 Confluence Scan (aligned V5 + DRS + trend)
 # corrupt each other.
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    # Off-peak, staggered from the other scanners to dodge GitHub's top-of-hour
+    # cron congestion. :19 -> full scan (all TFs), :49 -> 15m-only.
+    - cron: "19,49 * * * *"
   workflow_dispatch:
     inputs:
       timeframes:
