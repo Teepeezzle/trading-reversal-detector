@@ -1,0 +1,62 @@
+name: Scanner Ledger Summary (weekly)
+
+# Weekly [SCANNER LEDGERS] email: reads the Winners + Confluence paper ledgers
+# from their Actions caches, reconciles for freshness, and emails one combined
+# snapshot (realized P&L, R, win rate, open trades). Read-only — saves nothing.
+on:
+  schedule:
+    - cron: "23 20 * * 0"      # Sundays 20:23 UTC (off-peak)
+  workflow_dispatch:
+
+concurrency:
+  group: ledger-summary
+  cancel-in-progress: false
+
+jobs:
+  summary:
+    name: Email the weekly ledger summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Restore each scanner's latest ledger (read-only; a non-matching key
+      # forces the restore-keys prefix to fetch the most recent cache).
+      - name: Restore winners ledger
+        uses: actions/cache/restore@v5
+        with:
+          path: state
+          key: v5-winners-state-summary-readonly
+          restore-keys: |
+            v5-winners-state-
+
+      - name: Restore confluence ledger
+        uses: actions/cache/restore@v5
+        with:
+          path: state
+          key: v5-confluence-v2-state-summary-readonly
+          restore-keys: |
+            v5-confluence-v2-state-
+
+      - name: Send ledger summary email
+        env:
+          EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          BASE_EQUITY: ${{ secrets.BASE_EQUITY }}
+          ACCOUNT_EQUITY: ${{ secrets.ACCOUNT_EQUITY }}
+          RISK_PCT: ${{ secrets.RISK_PCT }}
+          PYTHONIOENCODING: "utf-8"
+        run: |
+          python ledger_summary.py
