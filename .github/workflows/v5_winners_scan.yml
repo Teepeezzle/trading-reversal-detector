@@ -9,10 +9,11 @@ name: V5 Winners Scan (5 assets, trade alerts)
 #   * Separate dedup state file (state/v5_winners_alerted.json) and a separate
 #     cache-key namespace (v5-winners-state-*) -> neither reads or overwrites
 #     the other's alert history.
-#   * Same */30 cron: both may fire at :00, but they execute independently.
+#   * Staggered off-peak crons (this one at :11/:41) so the scanners don't
+#     fire at the same instant and compete for a runner.
 #
 # Routing (v5_winners_scan.py, same clock logic as the main scanner):
-#   :00 and :30 -> 15m ;  :00 only -> 1h, 2h, 3h, 4h
+#   minute 0-29 -> full scan (15m + 1h/2h/3h/4h) ;  minute 30-59 -> 15m only
 on:
   schedule:
     # Off-peak, staggered from the other scanners to dodge GitHub's top-of-hour
