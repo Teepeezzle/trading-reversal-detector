@@ -23,7 +23,7 @@ from src.v5_divergence import (
     filter_fresh, load_state, parse_tf_minutes, resample_ohlcv, save_state,
 )
 from src.v5_confluence import (
-    build_confluence_email, confluence_on_frame, drs_active_red,
+    build_confluence_email, confluence_on_frame, drs_zones,
 )
 from src.email_alerts import _send_html_email
 from src import v5_ledger
@@ -130,8 +130,8 @@ def main() -> int:
         frames = build_frames(ticker, anchor, tf_cfg, fetch_cache, now)
         if not frames:
             print(f"  {asset:<8} no data"); continue
-        red_long, tl = drs_active_red(frames, "long", now, zone_days) if "buy" in allowed else (None, None)
-        red_short, ts = drs_active_red(frames, "short", now, zone_days) if "sell" in allowed else (None, None)
+        zones_long = drs_zones(frames, "long") if "buy" in allowed else ([], [])
+        zones_short = drs_zones(frames, "short") if "sell" in allowed else ([], [])
 
         found: List[DivergenceSignal] = []
         for tf in tfs:
@@ -140,7 +140,8 @@ def main() -> int:
             frame, _ = frames[tf]
             sigs = confluence_on_frame(frame, asset, ticker, tf,
                                        parse_tf_minutes(tf), div_cfg, allowed,
-                                       red_long, red_short, sl_mult, tp_mult, buf_atr)
+                                       zones_long, zones_short, sl_mult, tp_mult,
+                                       buf_atr, zone_days)
             if not args.no_freshness:
                 sigs = filter_fresh(sigs, now,
                                     int(tf_cfg[tf].get("scan_every_minutes", 60)), buffer_min)

@@ -48,16 +48,17 @@ def drs_signals(frame: pd.DataFrame, has_vol: bool):
     return longc, shortc, atr
 
 
-def drs_active_red(frames: Dict[str, Tuple[pd.DataFrame, bool]], direction: str,
-                   now: pd.Timestamp, max_days: int = 30
-                   ) -> Tuple[Optional[float], Optional[pd.Timestamp]]:
-    """Latest same-direction DRS red level across all TFs, within max_days.
+def drs_zones(frames: Dict[str, Tuple[pd.DataFrame, bool]], direction: str
+              ) -> Tuple[List[pd.Timestamp], List[float]]:
+    """ALL same-direction DRS red levels across all TFs, sorted by time.
 
-    long  -> red = DRS-long stop  = low - 1.5*ATR  (acts as support)
-    short -> red = DRS-short stop = high + 1.5*ATR (acts as resistance)
+    long  -> red = DRS-long stop  = low - 1.5*ATR  (support)
+    short -> red = DRS-short stop = high + 1.5*ATR (resistance)
+    Returns (times, reds). The DRS-LOOSE rule checks ANY of these within 30d of
+    a trigger (not just the most recent), so the caller keeps the full list.
     """
-    best_t: Optional[pd.Timestamp] = None
-    best_red: Optional[float] = None
+    ts: List[pd.Timestamp] = []
+    rs: List[float] = []
     for tf, (frame, has_vol) in frames.items():
         longc, shortc, atr = drs_signals(frame, has_vol)
         arr = longc if direction == "long" else shortc
@@ -66,24 +67,28 @@ def drs_active_red(frames: Dict[str, Tuple[pd.DataFrame, bool]], direction: str,
         for i in range(len(frame)):
             if not arr[i] or not np.isfinite(atr[i]) or atr[i] <= 0:
                 continue
-            t = idx[i]
-            if (now - t) > pd.Timedelta(days=max_days):
-                continue
-            if best_t is None or t > best_t:
-                best_t = t
-                best_red = (low[i]-1.5*atr[i]) if direction == "long" else (high[i]+1.5*atr[i])
-    return best_red, best_t
+            ts.append(idx[i])
+            rs.append(low[i]-1.5*atr[i] if direction == "long" else high[i]+1.5*atr[i])
+    order = np.argsort(ts)
+    return [ts[k] for k in order], [rs[k] for k in order]
 
 
 def confluence_on_frame(frame: pd.DataFrame, asset: str, ticker: str, tf: str,
                         bar_min: int, div_cfg: dict, allowed_dirs: List[str],
-                        red_long: Optional[float], red_short: Optional[float],
-                        sl_mult: float, tp_mult: float, buffer_atr: float
-                        ) -> List[DivergenceSignal]:
-    """Aligned V5 divergences on this frame that sit at/near the DRS red level."""
+                        zones_long: Tuple[List, List], zones_short: Tuple[List, List],
+                        sl_mult: float, tp_mult: float, buffer_atr: float,
+                        zone_max_days: int = 30) -> List[DivergenceSignal]:
+    """Aligned V5 divergences that sit at/near ANY DRS red in the last 30d.
+
+    DRS-LOOSE: walk back through same-direction DRS zones with time <= the
+    divergence-confirm time and within `zone_max_days`; the trade qualifies if
+    ANY of those zones' red level satisfies the at/near-edge price condition.
+    """
+    import bisect
     atr_len = int(div_cfg.get("atr_len", 14))
     sigs = detect_divergences(frame, asset, ticker, tf, bar_min, div_cfg)
     sigs = attach_trade_levels(sigs, frame, atr_len, sl_mult, tp_mult)
+    maxd = pd.Timedelta(days=zone_max_days)
     out: List[DivergenceSignal] = []
     for s in sigs:
         if s.stop is None or s.atr is None:
@@ -92,14 +97,18 @@ def confluence_on_frame(frame: pd.DataFrame, asset: str, ticker: str, tf: str,
         want = "buy" if d == "long" else "sell"
         if want not in allowed_dirs:
             continue
-        red = red_long if d == "long" else red_short
+        times, reds = zones_long if d == "long" else zones_short
+        buf = buffer_atr * s.atr
+        k = bisect.bisect_right(times, s.confirm_time) - 1
+        red = None
+        while k >= 0 and (s.confirm_time - times[k]) <= maxd:
+            near = (s.close <= reds[k] + buf) if d == "long" else (s.close >= reds[k] - buf)
+            if near:
+                red = float(reds[k]); break
+            k -= 1
         if red is None:
             continue
-        buf = buffer_atr * s.atr
-        near_red = (s.close <= red + buf) if d == "long" else (s.close >= red - buf)
-        if not near_red:
-            continue
-        s.drs_red = float(red)           # dynamic attribute for the email
+        s.drs_red = red                  # dynamic attribute for the email
         s.side = want.upper()
         out.append(s)
     return out

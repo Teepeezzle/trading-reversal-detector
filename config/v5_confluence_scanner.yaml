@@ -1,18 +1,25 @@
 # =====================================================================
 # V5 CONFLUENCE scanner — configuration
 #
-# The 3-way setup validated in backtest (adding TD did NOT help):
-#   aligned V5 divergence + DRS support/resistance (any TF, within 30d) +
-#   200-SMA trend, on a robustness-checked, direction-specific shortlist.
-#   Exit: SL 1.5xATR / TP 4.0xATR (1:2.67).
+# The 3-way setup (adding TD setup/countdown did NOT help; exit-ratio and
+# entry-confirmation tests said keep the base 1:2.67):
+#   aligned V5 divergence + DRS support/resistance + 200-SMA trend.
+#
+# DRS RULE = "LOOSE": a trigger qualifies if ANY same-direction DRS red in the
+#   last `zone_max_days` (across any TF) satisfies the at/near-edge condition —
+#   NOT just the most recent band. (The latest-band rule fired only ~14x/2y;
+#   the loose rule is the version that backtested to a real edge.)
+#
+# Exit = BASE SL 1.5xATR / TP 4.0xATR (1:2.67) — max expectancy. The exit sweep
+#   showed shrinking the target raises win% but destroys profit, so we keep it.
+#
+# ASSETS pruned + DIRECTION-restricted from the 2y per-asset x direction study
+# (keep only the positive side of each). Small-sample / marginal names (NAS100,
+# GBPUSD) are included per request; the paper ledger will confirm them live.
+# Everything is forward-tracked because the backtest edge is selection-biased.
 #
 # Runs ALONGSIDE the other scanners with full isolation (own workflow,
 # concurrency group, dedup + ledger state). Emails carry [V5 CONFLUENCE].
-#
-# Per-asset `dirs` restricts to the direction(s) that were positive in BOTH
-# the 3-way and 4-way tests:
-#   buys : BTCUSD, NZDJPY, USDJPY, GBPUSD
-#   sells: DOGEUSD, XAUUSD, EURUSD, BTCUSD
 # =====================================================================
 
 divergence:
@@ -41,13 +48,19 @@ sizing:
   risk_pct: 5
 
 assets:
-  BTCUSD:  {ticker: BTC-USD,  anchor: utc,  dirs: [buy, sell]}
-  NZDJPY:  {ticker: NZDJPY=X, anchor: ny17, dirs: [buy]}
-  USDJPY:  {ticker: USDJPY=X, anchor: ny17, dirs: [buy]}
-  GBPUSD:  {ticker: GBPUSD=X, anchor: ny17, dirs: [buy]}
-  DOGEUSD: {ticker: DOGE-USD, anchor: utc,  dirs: [sell]}
-  XAUUSD:  {ticker: GC=F,     anchor: ny17, dirs: [sell]}  # gold futures proxy
-  EURUSD:  {ticker: EURUSD=X, anchor: ny17, dirs: [sell]}
+  # BUY-side edge (aligned bull div at DRS support, uptrend)
+  BTCUSD:  {ticker: BTC-USD,  anchor: utc,  dirs: [buy]}         # buy +16.7R (50%)
+  NZDJPY:  {ticker: NZDJPY=X, anchor: ny17, dirs: [buy]}         # buy +10.0R (39%)
+  AUDUSD:  {ticker: AUDUSD=X, anchor: ny17, dirs: [buy]}         # buy +4.7R  (40%)
+  NAS100:  {ticker: NQ=F,     anchor: ny17, dirs: [buy]}         # marginal; on request
+  GBPUSD:  {ticker: GBPUSD=X, anchor: ny17, dirs: [buy]}         # marginal; on request
+  # SELL-side edge (aligned bear div at DRS resistance, downtrend)
+  DOGEUSD: {ticker: DOGE-USD, anchor: utc,  dirs: [sell]}        # sell +20.3R (55%)
+  XAUUSD:  {ticker: GC=F,     anchor: ny17, dirs: [sell]}        # sell +14.3R (53%); gold futures proxy
+  EURUSD:  {ticker: EURUSD=X, anchor: ny17, dirs: [sell]}        # sell +5.0R  (35%)
+  # BOTH sides positive
+  USDJPY:  {ticker: USDJPY=X, anchor: ny17, dirs: [buy, sell]}   # buy +8.7R / sell +5.0R
+  ETHUSD:  {ticker: ETH-USD,  anchor: utc,  dirs: [buy, sell]}   # small n but both positive
 
 timeframes:
   15m: {source_interval: 15m, resample: null,  period: 30d,  scan_every_minutes: 30}

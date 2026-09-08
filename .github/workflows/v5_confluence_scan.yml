@@ -47,9 +47,9 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: state
-          key: v5-confluence-state-${{ github.run_id }}-${{ github.run_attempt }}
+          key: v5-confluence-v2-state-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            v5-confluence-state-
+            v5-confluence-v2-state-
 
       - name: Run V5 confluence scan
         env:
@@ -67,4 +67,4 @@ jobs:
         uses: actions/cache/save@v5
         with:
           path: state
-          key: v5-confluence-state-${{ github.run_id }}-${{ github.run_attempt }}
+          key: v5-confluence-v2-state-${{ github.run_id }}-${{ github.run_attempt }}
