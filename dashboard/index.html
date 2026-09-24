@@ -160,7 +160,8 @@ function gauge(a){
 function divLine(a){
   if(!a.last_div) return `<div class="div none">No recent aligned divergence</div>`;
   const d=a.last_div; const dir=d.dir==="buy"?"Bull":"Bear";
-  return `<div class="div">Latest divergence: <b>${dir}</b> · ${d.tf} · <span class="mono">${d.bars_ago}</span> bars ago</div>`;
+  const note = d.tradeable===false ? ` &middot; <span style="color:var(--mut2)">not traded (${a.dirs.join("/")}-only)</span>` : "";
+  return `<div class="div">Latest divergence: <b>${dir}</b> · ${d.tf} · <span class="mono">${d.bars_ago}</span> bars ago${note}</div>`;
 }
 function setupBox(a){
   if(!a.setup) return `<div class="setup"><span class="none">No confluence setup on record</span></div>`;

@@ -138,13 +138,15 @@ def asset_state(asset, spec, cache, now):
         for s in sigs:
             direction = "long" if s.direction == "BULL" else "short"
             want = "buy" if direction == "long" else "sell"
-            if want not in allowed or (now - s.confirm_time) > pd.Timedelta(days=ZONE_DAYS):
+            if (now - s.confirm_time) > pd.Timedelta(days=ZONE_DAYS):
                 continue
             bars_ago = nbar - posmap[s.confirm_time]
+            # latest ALIGNED divergence in ANY direction (context; matches the chart)
             if last_div is None or s.confirm_time > last_div["_t"]:
-                last_div = dict(_t=s.confirm_time, dir=want, tf=tf, bars_ago=int(bars_ago))
-            # confluence qualify
-            if s.stop is None or s.atr is None:
+                last_div = dict(_t=s.confirm_time, dir=want, tf=tf, bars_ago=int(bars_ago),
+                                tradeable=(want in allowed))
+            # confluence SETUP only for the asset's allowed direction(s)
+            if want not in allowed or s.stop is None or s.atr is None:
                 continue
             times, reds = zones[direction]
             k = bisect.bisect_right(times, s.confirm_time) - 1
