@@ -1,0 +1,63 @@
+name: Confluence Board (Pages auto-refresh)
+
+# Regenerates the per-pair confluence snapshot (dashboard/data.js) and deploys the
+# dashboard to GitHub Pages on a schedule, so the board at the Pages URL is always
+# current. Read-only market analysis from public data — uses NO secrets and holds
+# no account equity / credentials. Only validated confluence components are shown
+# (aligned V5 divergence + DRS support/resistance + chart-native trend).
+#
+# ONE-TIME SETUP (repo owner): Settings -> Pages -> Build and deployment ->
+# Source = "GitHub Actions". After that this workflow publishes on every run.
+on:
+  schedule:
+    - cron: "27 */2 * * *"      # every 2 hours at :27 (off top-of-hour congestion)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: confluence-board-pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    name: Refresh snapshot and deploy the board
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Regenerate confluence snapshot
+        env:
+          PYTHONIOENCODING: "utf-8"
+        run: python backtest/dashboard_data.py dashboard/data.js
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload dashboard as Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dashboard
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4

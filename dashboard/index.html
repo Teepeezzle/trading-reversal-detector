@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Confluence Board</title>
+<meta name="description" content="Per-pair live state of the V5 confluence scanner: multi-timeframe trend, DRS support/resistance proximity, latest aligned divergence, and any live setup.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#eef1f7; --panel:#ffffff; --panel2:#f4f6fb; --bd:#dde3ef; --bd2:#cbd5e8;
+  --tx:#0c1424; --mut:#5a6a86; --mut2:#8493ac;
+  --up:#159b52; --down:#d63b3b; --cyan:#0e8fa8; --gold:#b8790a; --amber:#c47d0a;
+  --setupbg:#fff7e6; --nearbg:#e9f6fb; --shadow:0 1px 2px rgba(20,30,60,.06),0 4px 14px rgba(20,30,60,.05);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#080b12; --panel:#111827; --panel2:#0d1420; --bd:#212f47; --bd2:#2b3c5a;
+  --tx:#e7eefb; --mut:#93a3bf; --mut2:#63748f;
+  --up:#22c55e; --down:#f0555a; --cyan:#22d3ee; --gold:#f5b301; --amber:#f5b301;
+  --setupbg:#1c1606; --nearbg:#08181d; --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.35);
+}}
+:root[data-theme="dark"]{
+  --bg:#080b12; --panel:#111827; --panel2:#0d1420; --bd:#212f47; --bd2:#2b3c5a;
+  --tx:#e7eefb; --mut:#93a3bf; --mut2:#63748f;
+  --up:#22c55e; --down:#f0555a; --cyan:#22d3ee; --gold:#f5b301; --amber:#f5b301;
+  --setupbg:#1c1606; --nearbg:#08181d; --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}
+.wrap{max-width:1180px;margin:0 auto;padding-block:22px;padding-inline:16px}
+header{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:6px}
+h1{font-size:23px;font-weight:700;margin:0;letter-spacing:.2px}
+.sub{color:var(--mut);font-size:12.5px;margin:3px 0 0}
+.counts{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;
+  border:1px solid var(--bd2);background:var(--panel);font-size:12px;font-weight:600;box-shadow:var(--shadow)}
+.pill .n{font-family:"IBM Plex Mono",monospace}
+.dot{width:8px;height:8px;border-radius:50%;flex:none}
+.d-setup{background:var(--amber)} .d-near{background:var(--cyan)} .d-quiet{background:var(--mut2)}
+.bar{display:flex;align-items:center;gap:12px;margin:14px 0 16px;flex-wrap:wrap}
+.seg{display:flex;gap:2px;background:var(--panel2);border:1px solid var(--bd);border-radius:9px;padding:3px}
+.seg button{border:0;background:transparent;color:var(--mut);font:600 12px/1 "IBM Plex Sans",sans-serif;
+  padding:7px 12px;border-radius:6px;cursor:pointer}
+.seg button.on{background:var(--cyan);color:#04141a}
+.legend{color:var(--mut2);font-size:11.5px;display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--bd);border-radius:14px;padding:15px 16px;box-shadow:var(--shadow);
+  display:flex;flex-direction:column;gap:11px}
+.card.s-SETUP{border-color:var(--amber);background:linear-gradient(var(--setupbg),var(--panel) 60%)}
+.card.s-NEAR{border-color:var(--cyan)}
+.chead{display:flex;align-items:center;gap:9px}
+.sym{font-size:17px;font-weight:700;letter-spacing:.3px}
+.badge{font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 7px;border-radius:5px;text-transform:uppercase}
+.b-buy{color:var(--up);background:color-mix(in srgb,var(--up) 15%,transparent)}
+.b-sell{color:var(--down);background:color-mix(in srgb,var(--down) 15%,transparent)}
+.b-both{color:var(--cyan);background:color-mix(in srgb,var(--cyan) 15%,transparent)}
+.status{margin-left:auto;font-size:10.5px;font-weight:700;letter-spacing:.07em;padding:4px 9px;border-radius:6px}
+.st-SETUP{color:#04141a;background:var(--amber)} .st-NEAR{color:#04141a;background:var(--cyan)}
+.st-QUIET{color:var(--mut);background:var(--panel2);border:1px solid var(--bd)}
+.priceline{display:flex;align-items:baseline;gap:10px}
+.price{font-family:"IBM Plex Mono",monospace;font-size:20px;font-weight:600}
+.bias{font-size:11px;font-weight:600;padding:2px 8px;border-radius:5px}
+.bias.up{color:var(--up);background:color-mix(in srgb,var(--up) 13%,transparent)}
+.bias.down{color:var(--down);background:color-mix(in srgb,var(--down) 13%,transparent)}
+.bias.mixed{color:var(--mut);background:var(--panel2)}
+.upd{color:var(--mut2);font-size:11px;margin-left:auto}
+.lbl{color:var(--mut2);font-size:10px;letter-spacing:.09em;text-transform:uppercase;margin-bottom:5px}
+.tfstrip{display:flex;gap:4px}
+.tf{flex:1;text-align:center;border-radius:6px;padding:5px 0;font:600 10.5px/1.3 "IBM Plex Mono",monospace;border:1px solid transparent}
+.tf .t{font-size:9px;opacity:.75;display:block}
+.tf.up{color:var(--up);background:color-mix(in srgb,var(--up) 12%,transparent);border-color:color-mix(in srgb,var(--up) 30%,transparent)}
+.tf.down{color:var(--down);background:color-mix(in srgb,var(--down) 12%,transparent);border-color:color-mix(in srgb,var(--down) 30%,transparent)}
+.tf.na{color:var(--mut2);background:var(--panel2)}
+.levels{display:flex;flex-direction:column;gap:6px}
+.lvrow{display:flex;align-items:center;gap:8px;font-size:12.5px}
+.lvrow .cap{width:74px;color:var(--mut);font-size:11px}
+.lvrow .v{font-family:"IBM Plex Mono",monospace;font-weight:600}
+.lvrow .d{margin-left:auto;color:var(--mut2);font-size:11px;font-family:"IBM Plex Mono",monospace}
+.gauge{position:relative;height:6px;border-radius:4px;background:linear-gradient(90deg,color-mix(in srgb,var(--up) 30%,transparent),var(--panel2),color-mix(in srgb,var(--down) 30%,transparent))}
+.gauge .mk{position:absolute;top:-3px;width:3px;height:12px;border-radius:2px;background:var(--tx)}
+.div{font-size:12px;color:var(--mut)}
+.div b{color:var(--tx)}
+.setup{border-top:1px dashed var(--bd);padding-top:10px;font-size:12.5px}
+.setup.stale{opacity:.62}
+.setup .top{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.setup .side{font-weight:700}
+.setup .side.BUY{color:var(--up)} .setup .side.SELL{color:var(--down)}
+.zones{color:var(--gold);letter-spacing:1px;font-size:12px}
+.age{margin-left:auto;color:var(--mut2);font-size:10.5px}
+.live{color:#04141a;background:var(--amber);font-size:9.5px;font-weight:700;padding:2px 6px;border-radius:4px;letter-spacing:.05em}
+.ett{display:flex;gap:12px;font-family:"IBM Plex Mono",monospace;font-size:12px}
+.ett span{color:var(--mut2)} .ett b{color:var(--tx);font-weight:600}
+.none{color:var(--mut2);font-size:11.5px;font-style:italic}
+footer{color:var(--mut2);font-size:11px;line-height:1.7;margin-top:22px;border-top:1px solid var(--bd);padding-top:14px}
+.hidden{display:none!important}
+@media (max-width:520px){.grid{grid-template-columns:1fr}.counts{width:100%;margin-left:0}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Confluence Board</h1>
+      <p class="sub" id="sub">loading…</p>
+    </div>
+    <div class="counts" id="counts"></div>
+  </header>
+  <div class="bar">
+    <div class="seg" id="filter" role="group" aria-label="Filter">
+      <button data-f="all" class="on">All pairs</button>
+      <button data-f="act">Actionable</button>
+    </div>
+    <div class="legend">
+      <span><span class="dot d-setup"></span> Setup &mdash; fresh trigger</span>
+      <span><span class="dot d-near"></span> Near &mdash; price at a level</span>
+      <span><span class="dot d-quiet"></span> Quiet</span>
+      <span class="zones">&#9670;</span> = distinct DRS zones
+    </div>
+  </div>
+  <div class="grid" id="grid"></div>
+  <footer id="foot"></footer>
+</div>
+
+<script src="data.js"></script>
+<script>
+"use strict";
+const D = window.CONFLUENCE_STATE || {assets:[],counts:{},tf_order:[]};
+let filter = "all";
+try{ filter = localStorage.getItem("cb-filter") || "all"; }catch(e){}
+
+function fmt(n){ if(n==null) return "—"; const a=Math.abs(n);
+  const dp = a>=1000?0:a>=100?2:a>=1?3:5; return Number(n).toFixed(dp); }
+function esc(s){ return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+
+function dirsBadge(dirs){
+  if(dirs.length===2) return `<span class="badge b-both">both</span>`;
+  return dirs[0]==="buy" ? `<span class="badge b-buy">buy</span>` : `<span class="badge b-sell">sell</span>`;
+}
+function tfStrip(a){
+  return `<div class="tfstrip">` + D.tf_order.map(tf=>{
+    const v=(a.trends[tf]||"na"); return `<div class="tf ${v}"><span class="t">${tf}</span>${v==="up"?"▲":v==="down"?"▼":"·"}</div>`;
+  }).join("") + `</div>`;
+}
+function gauge(a){
+  const s=a.support, r=a.resistance;
+  let g="";
+  if(s&&r){ const frac=Math.max(0,Math.min(1,(a.price-s.level)/(r.level-s.level)));
+    g=`<div class="gauge"><div class="mk" style="left:${(frac*100).toFixed(1)}%"></div></div>`; }
+  const rowR = r ? `<div class="lvrow"><span class="cap">▲ Resist</span><span class="v mono">${fmt(r.level)}</span><span class="d">+${r.dist_pct}% · ${r.dist_atr}×ATR</span></div>`
+                 : `<div class="lvrow"><span class="cap">▲ Resist</span><span class="none">none within range</span></div>`;
+  const rowS = s ? `<div class="lvrow"><span class="cap">▼ Support</span><span class="v mono">${fmt(s.level)}</span><span class="d">−${s.dist_pct}% · ${s.dist_atr}×ATR</span></div>`
+                 : `<div class="lvrow"><span class="cap">▼ Support</span><span class="none">none within range</span></div>`;
+  return `<div class="levels">${rowR}${g}${rowS}</div>`;
+}
+function divLine(a){
+  if(!a.last_div) return `<div class="div none">No recent aligned divergence</div>`;
+  const d=a.last_div; const dir=d.dir==="buy"?"Bull":"Bear";
+  return `<div class="div">Latest divergence: <b>${dir}</b> · ${d.tf} · <span class="mono">${d.bars_ago}</span> bars ago</div>`;
+}
+function setupBox(a){
+  if(!a.setup) return `<div class="setup"><span class="none">No confluence setup on record</span></div>`;
+  const s=a.setup; const live = a.status==="SETUP";
+  const zc = "◆".repeat(Math.min(s.zones,3)) + (s.zones>3?`<span class="mono" style="opacity:.6">+${s.zones-3}</span>`:"");
+  return `<div class="setup ${live?"":"stale"}">
+    <div class="top">
+      <span class="side ${s.side}">${s.side}</span>
+      <span class="mono" style="color:var(--mut)">${s.tf}</span>
+      <span class="zones" title="${s.zones} distinct DRS zones">${zc}</span>
+      ${live?`<span class="live">LIVE</span>`:``}
+      <span class="age">${live?"just triggered":"last setup"} · ${s.bars_ago} bars ago</span>
+    </div>
+    <div class="ett"><span>entry</span><b>${fmt(s.entry)}</b><span>SL</span><b>${fmt(s.stop)}</b><span>TP</span><b>${fmt(s.target)}</b></div>
+  </div>`;
+}
+function card(a){
+  return `<div class="card s-${a.status}" data-status="${a.status}">
+    <div class="chead"><span class="sym">${esc(a.asset)}</span>${dirsBadge(a.dirs)}
+      <span class="status st-${a.status}">${a.status}</span></div>
+    <div class="priceline"><span class="price">${fmt(a.price)}</span>
+      <span class="bias ${a.trend_bias}">${a.trend_bias==="up"?"trend up":a.trend_bias==="down"?"trend down":"mixed"}</span>
+      <span class="upd">${esc((a.updated||"").slice(5,16))}</span></div>
+    <div><div class="lbl">Trend by timeframe</div>${tfStrip(a)}</div>
+    <div><div class="lbl">DRS levels &amp; price location</div>${gauge(a)}</div>
+    ${divLine(a)}
+    ${setupBox(a)}
+  </div>`;
+}
+function render(){
+  const list = filter==="act" ? D.assets.filter(a=>a.status!=="QUIET") : D.assets;
+  document.getElementById("grid").innerHTML = list.map(card).join("") ||
+    `<div class="none" style="padding:30px">No pairs match this filter.</div>`;
+  const c=D.counts||{};
+  document.getElementById("counts").innerHTML =
+    `<span class="pill"><span class="dot d-setup"></span>Setup <span class="n">${c.setup||0}</span></span>`+
+    `<span class="pill"><span class="dot d-near"></span>Near <span class="n">${c.near||0}</span></span>`+
+    `<span class="pill"><span class="dot d-quiet"></span>Quiet <span class="n">${c.quiet||0}</span></span>`;
+  document.getElementById("sub").textContent =
+    `${D.assets.length} pairs · snapshot ${D.generated} · aligned V5 divergence + DRS support/resistance + chart-native trend`;
+  document.getElementById("foot").innerHTML =
+    `<b>How to read:</b> each pair shows its trend on every scanned timeframe (chart-native 200-SMA), the nearest DRS support/resistance and how close price is, the latest trend-aligned MACD divergence, and the most recent confluence setup. `+
+    `<b>Status:</b> SETUP = a fresh trigger (≤5 bars); NEAR = price sitting at an allowed-direction level, watching for a divergence to complete the setup; QUIET = neither. `+
+    `Exit shown is SL 1.5×ATR / TP 4×ATR (1:2.67). This is a <b>snapshot</b> as of ${D.generated}; regenerate to refresh. Modest, forward-tracked paper edge — not financial advice.`;
+  [...document.querySelectorAll("#filter button")].forEach(b=>b.classList.toggle("on",b.dataset.f===filter));
+}
+document.getElementById("filter").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  filter=b.dataset.f; try{localStorage.setItem("cb-filter",filter);}catch(e){} render();
+});
+render();
+</script>
+
+</body>
+</html>
