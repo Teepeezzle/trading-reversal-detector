@@ -1,0 +1,140 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Teepeezzle
+
+//@version=6
+// =====================================================================
+// MACD-PARITY + TD SEQUENTIAL — UNIFIED STRATEGY  [VERIFICATION TOOL]
+//
+// Unifies Script A (MACD divergence, run/span parity) and Script B (TD
+// Sequential setup-9 + extended countdown 13-20) into one Strategy-Tester
+// backtest, so you can VERIFY the hypotheses yourself. Mirrors the Python study.
+//   * entry at the CLOSE of the confirming bar (process_orders_on_close),
+//   * ATR(14) stops SL 1.5x / TP 4x, risk-% sizing,
+//   * 0.05% commission/side + 1 tick slippage.
+//
+// HONEST RESULT (8 assets x 1h/4h/1D, ~2y):
+//   - MACD even/even alone:  -0.234R, PF 0.76   (net loser)
+//   - TD countdown 13-20:    -0.368R, PF 0.63   (net loser; 13+ is NOT special,
+//                            every count 13..20 loses; EVEN is not better than ODD)
+//   - Confluence (both <=5 bars): -0.130R, PF 0.86  (less bad, but STILL a loser)
+//   Only faint positive: DAILY timeframe TD 13+ = +0.059R, PF 1.08 (n=472).
+// So none of these is a profitable standalone edge. Ship this to STUDY, not to
+// trade. Set mode=TD 13+ on the Daily chart to inspect the one non-losing cell.
+// =====================================================================
+strategy("MACD-Parity + TD Sequential [VERIFY]", overlay = true,
+     initial_capital = 10000, default_qty_type = strategy.cash, default_qty_value = 0,
+     commission_type = strategy.commission.percent, commission_value = 0.05,
+     slippage = 1, process_orders_on_close = true, calc_on_every_tick = false,
+     pyramiding = 0, max_labels_count = 500)
+
+// ---------------- Inputs ----------------
+mode      = input.string("Confluence", "Signal mode",
+     options = ["MACD even/even", "TD 13+", "Confluence"], group = "Mode")
+sideMode  = input.string("Both", "Direction", options = ["Both", "Longs only", "Shorts only"], group = "Mode")
+
+gM = "MACD divergence (Script A)"
+leftBars  = input.int(5, "LEFT bars", minval = 2, group = gM)
+rightBars = input.int(2, "RIGHT bars (confirmation lag)", minval = 1, maxval = 5, group = gM)
+fastLen   = input.int(12, "MACD fast", group = gM)
+slowLen   = input.int(26, "MACD slow", group = gM)
+sigLen    = input.int(9,  "MACD signal", group = gM)
+useParity = input.bool(true, "Require EVEN run + EVEN span + span>run", group = gM)
+
+gT = "TD Sequential (Script B)"
+tdLook    = input.int(4,  "Setup lookback", minval = 1, group = gT)
+cdMin     = input.int(13, "Countdown min", minval = 1, group = gT)
+cdMax     = input.int(20, "Countdown max", minval = 1, group = gT)
+useVol    = input.bool(false, "Require volume spike at entry", group = gT)
+volLen    = input.int(14, "Volume MA length", group = gT)
+volMult   = input.float(1.5, "Volume spike (x avg)", step = 0.1, group = gT)
+
+gC = "Confluence / exit"
+confWin   = input.int(5, "Confluence window (bars between signals)", minval = 1, group = gC)
+atrLen    = input.int(14,  "ATR length", group = gC)
+slMult    = input.float(1.5, "SL (ATR x)", step = 0.1, group = gC)
+tpMult    = input.float(4.0, "TP (ATR x)", step = 0.1, group = gC)
+riskPerc  = input.float(1.0, "Risk % of equity per trade", step = 0.25, group = gC)
+
+atr = ta.atr(atrLen)
+[macdLine, _s, _h] = ta.macd(close, fastLen, slowLen, sigLen)
+volOk = not useVol or na(volume) or volume == 0 ? true : volume > ta.sma(volume, volLen) * volMult
+
+// ---------------- MACD divergence + parity ----------------
+ph = ta.pivothigh(high, leftBars, rightBars)
+pl = ta.pivotlow(low,  leftBars, rightBars)
+var float lPHp = na, var float lPHm = na, var int lPHb = na, var int hhRun = 0
+var float lPLp = na, var float lPLm = na, var int lPLb = na, var int llRun = 0
+var int lastEEbull = -100000, var int lastEEbear = -100000
+bool macdBull = false, bool macdBear = false
+
+if not na(ph)
+    m = macdLine[rightBars], b = bar_index - rightBars
+    if not na(lPHp)
+        higher = ph > lPHp
+        hhRun := higher ? hhRun + 1 : 1
+        span = b - lPHb
+        ee = (hhRun % 2 == 0) and (span % 2 == 0) and (span > hhRun)
+        if higher and m < lPHm and (ee or not useParity)
+            macdBear := true
+            if ee
+                lastEEbear := bar_index
+    else
+        hhRun := 1
+    lPHp := ph, lPHm := m, lPHb := b
+
+if not na(pl)
+    m = macdLine[rightBars], b = bar_index - rightBars
+    if not na(lPLp)
+        lower = pl < lPLp
+        llRun := lower ? llRun + 1 : 1
+        span = b - lPLb
+        ee = (llRun % 2 == 0) and (span % 2 == 0) and (span > llRun)
+        if lower and m > lPLm and (ee or not useParity)
+            macdBull := true
+            if ee
+                lastEEbull := bar_index
+    else
+        llRun := 1
+    lPLp := pl, lPLm := m, lPLb := b
+
+// ---------------- TD Sequential setup + extended countdown ----------------
+var int buySetup = 0, var int sellSetup = 0
+var int buyCd = 0, var bool buyAct = false, var int sellCd = 0, var bool sellAct = false
+buySetup  := (not na(close[tdLook]) and close < close[tdLook]) ? buySetup + 1 : 0
+sellSetup := (not na(close[tdLook]) and close > close[tdLook]) ? sellSetup + 1 : 0
+if buySetup == 9
+    buyAct := true, buyCd := 0, sellAct := false, sellCd := 0
+if sellSetup == 9
+    sellAct := true, sellCd := 0, buyAct := false, buyCd := 0
+bool tdBuy = false, bool tdSell = false
+if buyAct and not na(low[2]) and close <= low[2]
+    buyCd := buyCd + 1
+    if buyCd >= cdMin and buyCd <= cdMax
+        tdBuy := true
+if sellAct and not na(high[2]) and close >= high[2]
+    sellCd := sellCd + 1
+    if sellCd >= cdMin and sellCd <= cdMax
+        tdSell := true
+
+// ---------------- Combine by mode ----------------
+confBull = tdBuy  and (bar_index - lastEEbull <= confWin)
+confBear = tdSell and (bar_index - lastEEbear <= confWin)
+goLong  = mode == "MACD even/even" ? macdBull : mode == "TD 13+" ? tdBuy  : confBull
+goShort = mode == "MACD even/even" ? macdBear : mode == "TD 13+" ? tdSell : confBear
+goLong  := goLong  and volOk and atr > 0 and sideMode != "Shorts only"
+goShort := goShort and volOk and atr > 0 and sideMode != "Longs only"
+
+qtyFor(stopDist) => stopDist > 0 ? (strategy.equity * riskPerc / 100.0) / stopDist : 0.0
+if goLong
+    q = qtyFor(slMult * atr)
+    if q > 0
+        strategy.entry("L", strategy.long, qty = q)
+        strategy.exit("Lx", "L", stop = close - slMult * atr, limit = close + tpMult * atr)
+if goShort
+    q = qtyFor(slMult * atr)
+    if q > 0
+        strategy.entry("S", strategy.short, qty = q)
+        strategy.exit("Sx", "S", stop = close + slMult * atr, limit = close - tpMult * atr)
+
+plotshape(goLong,  "Long",  shape.triangleup,   location.belowbar, color.new(color.green, 0), size = size.tiny)
+plotshape(goShort, "Short", shape.triangledown, location.abovebar, color.new(color.red, 0),   size = size.tiny)
