@@ -62,6 +62,7 @@ h1{font-size:23px;font-weight:700;margin:0;letter-spacing:.2px}
 .b-buy{color:var(--up);background:color-mix(in srgb,var(--up) 15%,transparent)}
 .b-sell{color:var(--down);background:color-mix(in srgb,var(--down) 15%,transparent)}
 .b-both{color:var(--cyan);background:color-mix(in srgb,var(--cyan) 15%,transparent)}
+.b-watch{color:var(--mut);background:var(--panel2);border:1px solid var(--bd2)}
 .status{margin-left:auto;font-size:10.5px;font-weight:700;letter-spacing:.07em;padding:4px 9px;border-radius:6px}
 .st-SETUP{color:#04141a;background:var(--amber)} .st-NEAR{color:#04141a;background:var(--cyan)}
 .st-QUIET{color:var(--mut);background:var(--panel2);border:1px solid var(--bd)}
@@ -141,7 +142,9 @@ function fmt(n){ if(n==null) return "—"; const a=Math.abs(n);
   const dp = a>=1000?0:a>=100?2:a>=1?3:5; return Number(n).toFixed(dp); }
 function esc(s){ return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
 
-function dirsBadge(dirs){
+function dirsBadge(a){
+  if(a.watch) return `<span class="badge b-watch">watch</span>`;
+  const dirs=a.dirs;
   if(dirs.length===2) return `<span class="badge b-both">both</span>`;
   return dirs[0]==="buy" ? `<span class="badge b-buy">buy</span>` : `<span class="badge b-sell">sell</span>`;
 }
@@ -184,7 +187,7 @@ function setupBox(a){
 }
 function card(a){
   return `<div class="card s-${a.status}" data-status="${a.status}">
-    <div class="chead"><span class="sym">${esc(a.asset)}</span>${dirsBadge(a.dirs)}
+    <div class="chead"><span class="sym">${esc(a.asset)}</span>${dirsBadge(a)}
       <span class="status st-${a.status}">${a.status}</span></div>
     <div class="priceline"><span class="price">${fmt(a.price)}</span>
       <span class="bias ${a.trend_bias}">${a.trend_bias==="up"?"trend up":a.trend_bias==="down"?"trend down":"mixed"}</span>
@@ -210,7 +213,7 @@ function render(){
     `${D.assets.length} pairs · snapshot ${D.generated} · aligned V5 divergence + DRS support/resistance + chart-native trend`;
   document.getElementById("foot").innerHTML =
     `<b>How to read:</b> each pair shows its trend on every scanned timeframe (chart-native 200-SMA), the nearest DRS support/resistance and how close price is, the latest trend-aligned MACD divergence, and the most recent confluence setup. `+
-    `<b>Status:</b> SETUP = a fresh trigger (≤5 bars); NEAR = price sitting at an allowed-direction level, watching for a divergence to complete the setup; QUIET = neither. `+
+    `<b>Status:</b> SETUP = a fresh trigger (≤5 bars); NEAR = price sitting at an allowed-direction level, watching for a divergence to complete the setup; QUIET = neither. Pairs badged <b>watch</b> are your watchlist (both directions, no validated edge) &mdash; context only, they do not feed the email scanner. `+
     `Exit shown is SL 1.5×ATR / TP 4×ATR (1:2.67). This is a <b>snapshot</b> as of ${D.generated}; regenerate to refresh. Modest, forward-tracked paper edge — not financial advice.`;
   [...document.querySelectorAll("#filter button")].forEach(b=>b.classList.toggle("on",b.dataset.f===filter));
 }

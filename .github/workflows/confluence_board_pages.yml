@@ -26,7 +26,7 @@ jobs:
   build-and-deploy:
     name: Refresh snapshot and deploy the board
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20      # 29 pairs x intervals — headroom for the larger universe
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}

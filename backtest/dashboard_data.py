@@ -40,6 +40,22 @@ NEAR_ATR = 1.5           # price within this many ATR of an allowed-dir zone = N
 OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else (ROOT / "logs" / "dashboard_data.js")
 TF_ORDER = list(TF_CFG)
 
+# Monitor-only WATCHLIST (user's TradingView list). Unvalidated direction, so
+# both sides are shown and the card is badged "watch" (not BUY/SELL/BOTH). These
+# do NOT feed the email scanner -- dashboard context only. {name: (ticker, anchor)}
+WATCHLIST = {
+    "EURNZD": ("EURNZD=X", "ny17"), "AUDJPY": ("AUDJPY=X", "ny17"),
+    "GBPAUD": ("GBPAUD=X", "ny17"), "USDCAD": ("USDCAD=X", "ny17"),
+    "EURJPY": ("EURJPY=X", "ny17"), "NZDUSD": ("NZDUSD=X", "ny17"),
+    "EURGBP": ("EURGBP=X", "ny17"), "GBPNZD": ("GBPNZD=X", "ny17"),
+    "GBPJPY": ("GBPJPY=X", "ny17"), "USDNGN": ("USDNGN=X", "ny17"),
+    "AVAXUSD": ("AVAX-USD", "utc"), "SOLUSD": ("SOL-USD", "utc"),
+    "XRPUSD": ("XRP-USD", "utc"), "XAGUSD": ("SI=F", "ny17"),
+    "XTIUSD": ("CL=F", "ny17"), "XBRUSD": ("BZ=F", "ny17"),
+    "US30USD": ("YM=F", "ny17"), "EUSTX50": ("^STOXX50E", "ny17"),
+    "DXY": ("DX-Y.NYB", "ny17"),
+}
+
 
 def build_frames(ticker, anchor, cache, now):
     frames = {}
@@ -69,9 +85,7 @@ def distinct(reds, atrv):
     return len(kept)
 
 
-def asset_state(asset, spec, cache, now):
-    tk = spec["ticker"]; anchor = spec.get("anchor", "utc")
-    allowed = [str(x).lower() for x in spec.get("dirs", ["buy", "sell"])]
+def asset_state(asset, tk, anchor, allowed, watch, cache, now):
     frames = build_frames(tk, anchor, cache, now)
     if not frames:
         return None
@@ -181,7 +195,7 @@ def asset_state(asset, spec, cache, now):
         status = "QUIET"
 
     up = sum(1 for v in trends.values() if v == "up"); dn = sum(1 for v in trends.values() if v == "down")
-    return dict(asset=asset, ticker=tk, dirs=allowed, price=round(price, 6),
+    return dict(asset=asset, ticker=tk, dirs=allowed, watch=watch, price=round(price, 6),
                 updated=str(last_ts), price_tf=ptf, atr=round(patr, 6),
                 trends=trends, trend_bias=("up" if up > dn else "down" if dn > up else "mixed"),
                 support=pack_level(nearest_sup), resistance=pack_level(nearest_res),
@@ -192,14 +206,24 @@ def asset_state(asset, spec, cache, now):
 def main():
     now = pd.Timestamp.now(tz="UTC").tz_localize(None)
     cache = {}; out = []
-    for asset, spec in ASSETS.items():
-        st = asset_state(asset, spec, cache, now)
+    roster = [(a, s["ticker"], s.get("anchor", "utc"),
+               [str(x).lower() for x in s.get("dirs", ["buy", "sell"])], False)
+              for a, s in ASSETS.items()]
+    roster += [(a, tk, anc, ["buy", "sell"], True) for a, (tk, anc) in WATCHLIST.items()]
+    for asset, tk, anchor, allowed, watch in roster:
+        try:
+            st = asset_state(asset, tk, anchor, allowed, watch, cache, now)
+        except Exception as exc:  # noqa: BLE001  one bad ticker must not sink the board
+            print(f"{asset:<8} SKIP ({exc})", flush=True); st = None
         if st:
             out.append(st)
-            print(f"{asset:<8} {st['status']:<6} bias {st['trend_bias']:<5} "
-                  f"{'SETUP '+st['setup']['side'] if st['setup'] else 'no setup'}", flush=True)
+            print(f"{asset:<8} {'watch' if watch else 'valid':<5} {st['status']:<6} "
+                  f"bias {st['trend_bias']:<5} {'SETUP '+st['setup']['side'] if st['setup'] else ''}", flush=True)
+        elif st is None and asset not in [o['asset'] for o in out]:
+            pass
     rank = {"SETUP": 0, "NEAR": 1, "QUIET": 2}
-    out.sort(key=lambda a: (rank[a["status"]], a["asset"]))
+    # validated pairs sort before watch pairs within a status
+    out.sort(key=lambda a: (rank[a["status"]], a.get("watch", False), a["asset"]))
     data = {"generated": now.strftime("%Y-%m-%d %H:%M UTC"),
             "tf_order": TF_ORDER,
             "counts": {"setup": sum(1 for a in out if a["status"] == "SETUP"),
