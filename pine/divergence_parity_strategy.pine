@@ -1,0 +1,130 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Teepeezzle
+
+//@version=6
+// =====================================================================
+// V5 DIVERGENCE — PARITY STRATEGY  [VERIFICATION TOOL]
+//
+// strategy() conversion of the Swing+MACD divergence visualizer, built to let
+// you INDEPENDENTLY VERIFY the even-run / even-span hypothesis in TradingView's
+// Strategy Tester. It mirrors the Python backtest:
+//   * entry at the CLOSE of the bar that CONFIRMS the pivot (process_orders_on_
+//     close = true, so the fill is that close, respecting the rightBars lag);
+//   * ATR(14) stops: SL 1.5x / TP 4x; risk-% position sizing;
+//   * 0.05% commission/side + 1 tick slippage;
+//   * daily-200-SMA alignment via lookahead_OFF on the PRIOR day (no leak).
+//
+// HONEST RESULT (8 assets x 1h/4h/1D, ~2y, 10,045 trades): traded mechanically,
+// divergence-at-pivot is a NET LOSER on every slice (PF < 1). The parity filter
+// only makes it LESS negative (-0.22R vs -0.37R) -- it does NOT turn it
+// profitable. The single positive cell was Daily+parity at n=53 (too small).
+// Ship this to STUDY, not to trade. Leave filters OFF to see the losing baseline.
+// =====================================================================
+strategy("V5 Divergence — Parity Strategy [VERIFY]", overlay = true,
+     initial_capital = 10000, default_qty_type = strategy.cash, default_qty_value = 0,
+     commission_type = strategy.commission.percent, commission_value = 0.05,
+     slippage = 1, process_orders_on_close = true, calc_on_every_tick = false,
+     pyramiding = 1, max_labels_count = 500)
+
+// ---------------- Inputs ----------------
+gP = "Pivots / MACD"
+leftBars  = input.int(5, "LEFT bars",  minval = 2, group = gP)
+rightBars = input.int(2, "RIGHT bars (confirmation lag)", minval = 1, maxval = 5, group = gP)
+fastLen   = input.int(12, "MACD fast", group = gP)
+slowLen   = input.int(26, "MACD slow", group = gP)
+sigLen    = input.int(9,  "MACD signal", group = gP)
+
+gT = "Trend (no-lookahead daily 200-SMA)"
+useDaily  = input.bool(true, "Use daily 200-SMA alignment", group = gT)
+trendLen  = input.int(200, "Trend SMA length", group = gT)
+
+gH = "HYPOTHESIS filter (the thing under test)"
+useParity = input.bool(false, "Only take EVEN run + EVEN span + span>run", group = gH,
+     tooltip = "The user's observation. OFF = trade every divergence (the losing baseline).")
+alignMode = input.string("Both", "Trend filter", options = ["Both", "Aligned only", "Counter only"], group = gH)
+sideMode  = input.string("Both", "Direction", options = ["Both", "Longs only", "Shorts only"], group = gH)
+
+gX = "Exit / risk"
+atrLen   = input.int(14,  "ATR length", group = gX)
+slMult   = input.float(1.5, "SL (ATR x)", step = 0.1, group = gX)
+tpMult   = input.float(4.0, "TP (ATR x)", step = 0.1, group = gX)
+riskPerc = input.float(1.0, "Risk % of equity per trade", step = 0.25, group = gX)
+
+// ---------------- Series ----------------
+[macdLine, _s, _h] = ta.macd(close, fastLen, slowLen, sigLen)
+atr = ta.atr(atrLen)
+nativeSMA = ta.sma(close, trendLen)
+dSMA   = request.security(syminfo.tickerid, "D", ta.sma(close, trendLen)[1], barmerge.gaps_off, barmerge.lookahead_off)
+dClose = request.security(syminfo.tickerid, "D", close[1], barmerge.gaps_off, barmerge.lookahead_off)
+useD   = useDaily and not na(dSMA) and not na(dClose)
+trendRef = useD ? dSMA : nativeSMA
+cmpPx    = useD ? dClose : close
+inUp = not na(trendRef) and cmpPx > trendRef
+inDn = not na(trendRef) and cmpPx < trendRef
+
+ph = ta.pivothigh(high, leftBars, rightBars)
+pl = ta.pivotlow(low,  leftBars, rightBars)
+
+var float lastPHp = na, var float lastPHm = na, var int lastPHb = na, var int hhRun = 0
+var float lastPLp = na, var float lastPLm = na, var int lastPLb = na, var int llRun = 0
+
+bool bullSig = false, bool bearSig = false
+int  useRun = 0, int useSpan = 0
+
+if not na(ph)
+    m = macdLine[rightBars]
+    b = bar_index - rightBars
+    if not na(lastPHp)
+        higher = ph > lastPHp
+        hhRun := higher ? hhRun + 1 : 1
+        span = b - lastPHb
+        if higher and m < lastPHm
+            bearSig := true
+            useRun := hhRun
+            useSpan := span
+    else
+        hhRun := 1
+    lastPHp := ph, lastPHm := m, lastPHb := b
+
+if not na(pl)
+    m = macdLine[rightBars]
+    b = bar_index - rightBars
+    if not na(lastPLp)
+        lower = pl < lastPLp
+        llRun := lower ? llRun + 1 : 1
+        span = b - lastPLb
+        if lower and m > lastPLm
+            bullSig := true
+            useRun := llRun
+            useSpan := span
+    else
+        llRun := 1
+    lastPLp := pl, lastPLm := m, lastPLb := b
+
+// ---------------- Filters ----------------
+parityOK = not useParity or (useRun % 2 == 0 and useSpan % 2 == 0 and useSpan > useRun)
+alignBull = alignMode == "Both" or (alignMode == "Aligned only" and inUp) or (alignMode == "Counter only" and not inUp)
+alignBear = alignMode == "Both" or (alignMode == "Aligned only" and inDn) or (alignMode == "Counter only" and not inDn)
+sideBull  = sideMode != "Shorts only"
+sideBear  = sideMode != "Longs only"
+
+goLong  = bullSig and parityOK and alignBull and sideBull and atr > 0
+goShort = bearSig and parityOK and alignBear and sideBear and atr > 0
+
+// ---------------- Orders (risk-% sized, ATR stops, fill at confirm-bar close) ----------------
+qtyFor(stopDist) => stopDist > 0 ? (strategy.equity * riskPerc / 100.0) / stopDist : 0.0
+
+if goLong
+    q = qtyFor(slMult * atr)
+    if q > 0
+        strategy.entry("L", strategy.long, qty = q)
+        strategy.exit("Lx", "L", stop = close - slMult * atr, limit = close + tpMult * atr)
+if goShort
+    q = qtyFor(slMult * atr)
+    if q > 0
+        strategy.entry("S", strategy.short, qty = q)
+        strategy.exit("Sx", "S", stop = close + slMult * atr, limit = close - tpMult * atr)
+
+plot(trendRef, "Trend ref", color = color.new(color.blue, 0))
+plotshape(goLong,  "Long",  shape.triangleup,   location.belowbar, color.new(color.green, 0), size = size.tiny, offset = -rightBars)
+plotshape(goShort, "Short", shape.triangledown, location.abovebar, color.new(color.red, 0),   size = size.tiny, offset = -rightBars)
