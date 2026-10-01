@@ -24,11 +24,24 @@ Partial/forming bars are dropped (no look-ahead).
 | Oil | WTI/USD, BRENT/USD *(symbol strings TBD on free plan)* | NY |
 | Crypto | BTC/USD, ETH/USD, SOL/USD, XRP/USD, BNB/USD, DOGE/USD, AVAX/USD, LINK/USD, LTC/USD | 24/7 |
 
-## Actual coverage (auto-filled after first refresh)
+## Actual coverage (first refresh 2026-10-01, Twelve Data free)
 
-| Symbol | tf | bars | first | last | source | pull date | gaps notes |
-|---|---|---|---|---|---|---|---|
-| _pending first run_ | | | | | | | |
+**Depth is ~5000 bars/call (free cap).** Single-call reach per timeframe:
+
+| tf | bars/call | ≈ reach |
+|---|--:|---|
+| 15min | 4,999 | **~52 days** (binding constraint for OOS/walk-forward) |
+| 1h | 4,999 | ~208 days |
+| 4h | 4,999 | ~2.3 years |
+| 1day | 4,999 (FX/gold) · 2,100–3,300 (crypto) | ~20y FX/gold; crypto = coin age |
+
+**✅ Pulled OK (24 instruments × 4 tf):** EUR/USD, GBP/USD, USD/JPY, USD/CHF, USD/CAD,
+AUD/USD, NZD/USD, EUR/JPY, GBP/JPY, EUR/GBP, AUD/JPY, EUR/NZD, GBP/NZD, GBP/AUD, **XAU/USD**,
+BTC/USD, ETH/USD, SOL/USD, XRP/USD, BNB/USD, DOGE/USD, AVAX/USD, LINK/USD, LTC/USD.
+Crypto carries no volume (D-007). Budget used today: 144/800.
+
+**❌ NOT on Twelve Data free (404):** **XAG/USD (silver), WTI/USD, BRENT/USD** → see BLOCKERS B-003.
+Deeper 15m history would require paginating (end_date walk) = extra calls; deferred under $0.
 
 ## Known limitations
 - **No crypto volume on Twelve Data free** (confirmed first run 2026-10-01): crypto quotes

@@ -5,7 +5,15 @@ Open blockers at top. Jobs that hit a blocker log it here and exit cleanly (neve
 ---
 
 ## OPEN
-_(none)_
+
+### B-003 · Silver (XAG/USD) + oil (WTI, Brent) unavailable on Twelve Data free (404)
+Core mission assets can't be sourced from TD free. **Decision needed** (DECISIONS pending):
+- **(A, recommended)** yfinance fallback for these three — `SI=F` (silver), `CL=F` (WTI),
+  `BZ=F` (Brent) work free and are already used elsewhere in this repo. Best-free-source-per-
+  instrument; keeps metals+oil in scope at $0. Costs: dual-source (adds TD↔yfinance reconcile).
+- (B) Fund a TD/Polygon plan with native commodities (breaks $0).
+- (C) Drop silver + oil from scope.
+**Owner:** user decision. **Status:** OPEN.
 
 ---
 
