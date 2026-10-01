@@ -1,0 +1,5 @@
+# The OHLCV lake is built by Actions (persisted via cache + artifact), not committed —
+# until we measure its size and decide git-durability (DECISIONS D-006). Never commit keys.
+data/
+*.env
+.td_usage.json

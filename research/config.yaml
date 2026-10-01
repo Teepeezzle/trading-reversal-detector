@@ -1,0 +1,31 @@
+# Research universe + timeframes + session timing.
+# Twelve Data symbol strings are the candidates; exact availability on the FREE plan is
+# verified on first pull and recorded in DATA_MANIFEST.md (oil especially may differ).
+
+# Working timeframes only (5m excluded — DECISIONS D-005). Twelve Data interval strings.
+timeframes: ["15min", "1h", "4h", "1day"]
+
+# Free-tier guardrails (DECISIONS D-003). Enforced in twelvedata_client.py.
+rate:
+  per_minute: 8
+  per_day: 800
+  outputsize: 5000        # max bars per call on free plan
+
+# session: used by data_refresh to skip instruments whose session didn't run.
+#   crypto = always; fx/metals = London+NY; oil = NY.
+universe:
+  forex_majors:
+    session: fxmajor
+    symbols: ["EUR/USD","GBP/USD","USD/JPY","USD/CHF","USD/CAD","AUD/USD","NZD/USD"]
+  forex_crosses:
+    session: fxmajor
+    symbols: ["EUR/JPY","GBP/JPY","EUR/GBP","AUD/JPY","EUR/NZD","GBP/NZD","GBP/AUD"]
+  metals:
+    session: fxmajor
+    symbols: ["XAU/USD","XAG/USD"]
+  oil:
+    session: ny
+    symbols: ["WTI/USD","BRENT/USD"]      # TBD on free plan — verify, may be "USOIL"/"UKOIL"
+  crypto:
+    session: always
+    symbols: ["BTC/USD","ETH/USD","SOL/USD","XRP/USD","BNB/USD","DOGE/USD","AVAX/USD","LINK/USD","LTC/USD"]
