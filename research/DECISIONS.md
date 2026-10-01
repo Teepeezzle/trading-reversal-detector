@@ -4,6 +4,12 @@ Append-only. Newest at top. Each entry: date · decision · why · reversible?
 
 ---
 
+### 2026-10-01 · D-008 · Silver + oil sourced from yfinance (not on TD free)
+Twelve Data free returns 404 for XAG/USD, WTI/USD, BRENT/USD. User chose the yfinance fallback
+(B-003 option A): `SI=F` (silver), `CL=F` (WTI), `BZ=F` (Brent) — free, already used in this repo,
+same lake format via `research/src/yfinance_client.py` (4h resampled from 1h). These three are
+**sole-source** (no TD cross-check) and inherit yfinance limits (15m ~60d). _Reversible: yes._
+
 ### 2026-10-01 · D-007 · Volume features restricted to FX/metals/oil (crypto has no free volume)
 First live run confirmed Twelve Data free crypto quotes omit `volume`. **Decision:** volume
 primitives (OBV, volume-spike, VWAP-by-volume) are tested on FX/metals/oil only; crypto uses

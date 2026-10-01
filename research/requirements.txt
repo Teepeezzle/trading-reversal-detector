@@ -2,3 +2,4 @@
 requests>=2.31.0
 pandas>=2.0.0
 pyyaml>=6.0
+yfinance>=0.2.40          # B-003: sole source for silver/oil (SI=F/CL=F/BZ=F)
