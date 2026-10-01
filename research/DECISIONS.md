@@ -4,6 +4,24 @@ Append-only. Newest at top. Each entry: date · decision · why · reversible?
 
 ---
 
+### 2026-10-01 · D-010 · Sources reconciled (T-102); gold is spot, silver/oil are futures
+TD vs yfinance 1h close, inner-joined: **EUR/USD PASS** (median 0.027%, p95 0.038%), **BTC/USD
+PASS** (0.058% / 0.154%) → like-for-like sources agree tightly, **mixed lake validated**. XAU/USD
+"FAIL" (0.46% / 1.36%) is the **spot-vs-futures basis** (TD XAU/USD = spot; yfinance GC=F =
+futures), not a data error. **Consequence to carry:** gold = spot (TD); silver/oil = futures
+(yfinance). Fine for short-horizon technical signals (basis slow-moving); model roll/financing
+per instrument when costs are applied. See RECONCILE.md. _Reversible: yes (could switch gold to GC=F)._
+
+### 2026-10-01 · D-009 · Bigdata.com = interactive macro-event/news overlay only (MCP-ONLY, PAYG)
+User added the Bigdata.com connector. Assessment: it's an **equities-focused** news/sentiment/
+fundamentals service (packages: company-sentiment, earnings, filings, economic-calendar,
+premium-news, web, …; PAYG 1000 credits). For this FX/metals/oil/crypto PRICE project its useful
+surface is narrow — **economic-calendar + premium-news/web for macro-event context**. It is
+**MCP-ONLY** (no portable API → excluded from off-peak Actions sweeps per architecture) and
+**metered** (burning credits in bulk breaks the $0 spirit). **Decision:** use it only at the
+INTERACTIVE layer — event-awareness for the daily briefing (Phase 6) and qualitative regime
+labelling (Phase 4) — never as a price source and never in backtests/sweeps. _Reversible: yes._
+
 ### 2026-10-01 · D-008 · Silver + oil sourced from yfinance (not on TD free)
 Twelve Data free returns 404 for XAG/USD, WTI/USD, BRENT/USD. User chose the yfinance fallback
 (B-003 option A): `SI=F` (silver), `CL=F` (WTI), `BZ=F` (Brent) — free, already used in this repo,

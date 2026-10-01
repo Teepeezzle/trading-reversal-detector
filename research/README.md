@@ -10,6 +10,8 @@ A multi-week, checkpointed quant research project. **Read `PROJECT_STATE.md` fir
    HTTPS data client (`src/twelvedata_client.py`) + committed `/data` only.
 3. **Interactive compute (laptop + MCP):** TradingView / OANDA MCP for live review and
    reconciliation. MCP-only indicators are marked MCP-ONLY and excluded from off-peak sweeps.
+   **Bigdata.com** (news/sentiment/economic-calendar) is an interactive **macro-event overlay
+   only** — MCP-ONLY + PAYG-metered, never a price source, never in backtests (D-009).
 
 ## The portability rule
 Every indicator and signal rule must exist as a **plain Python function in `research/src/`** —
