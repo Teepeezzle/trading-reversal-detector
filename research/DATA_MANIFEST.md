@@ -40,7 +40,9 @@ AUD/USD, NZD/USD, EUR/JPY, GBP/JPY, EUR/GBP, AUD/JPY, EUR/NZD, GBP/NZD, GBP/AUD,
 BTC/USD, ETH/USD, SOL/USD, XRP/USD, BNB/USD, DOGE/USD, AVAX/USD, LINK/USD, LTC/USD.
 Crypto carries no volume (D-007). Budget used today: 144/800.
 
-**❌ NOT on Twelve Data free (404):** **XAG/USD (silver), WTI/USD, BRENT/USD** → see BLOCKERS B-003.
+**Silver + oil via yfinance (D-008 — not on TD free):** XAG/USD=`SI=F` (daily to 2000),
+WTI/USD=`CL=F` (1h to 2024, ~2.3y), BRENT/USD=`BZ=F`; 4h resampled from 1h; yfinance 15m ~60d.
+**Sole-source** (no TD cross-check for these three).
 Deeper 15m history would require paginating (end_date walk) = extra calls; deferred under $0.
 
 ## Known limitations

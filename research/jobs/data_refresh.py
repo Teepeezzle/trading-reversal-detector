@@ -81,16 +81,17 @@ def main() -> int:
     tfs = CFG["timeframes"]
     rate = CFG.get("rate", {})
 
+    client = None
     try:
         client = TwelveDataClient(DATA / ".td_usage.json",
                                   per_minute=rate.get("per_minute", 8),
                                   per_day=rate.get("per_day", 800))
     except MissingKeyError as e:
-        log_blocker(str(e)); return 0
+        log_blocker(str(e) + "  (Twelve Data pass skipped; yfinance instruments still refreshed.)")
 
     rows = []; pulled = 0; failed = []
     try:
-        for cls in want:
+        for cls in (want if client else []):
             spec = uni.get(cls)
             if not spec:
                 print(f"skip unknown class {cls}"); continue
@@ -116,10 +117,37 @@ def main() -> int:
     except BudgetExhausted:
         pass  # graceful stop; partial progress is saved + idempotent
 
+    # ---- yfinance-sourced instruments (B-003 / D-008): silver, oil — no key, no budget ----
+    yfs = CFG.get("yfinance", [])
+    if yfs:
+        try:
+            from yfinance_client import fetch as yf_fetch
+            for inst in yfs:
+                if args.classes != "all" and inst["asset_class"] not in want:
+                    continue
+                sym = inst["symbol"]; safe = sym.replace("/", ""); cls = inst["asset_class"]
+                for tf in tfs:
+                    try:
+                        df = yf_fetch(inst["yf"], tf)
+                        df = drop_incomplete(df, TF_MIN.get(tf, 60), now)
+                        if df.empty:
+                            failed.append(f"{sym} {tf}: yfinance empty"); continue
+                        merged = merge_save(DATA / cls / f"{safe}_{tf}.csv.gz", df)
+                        pulled += 1
+                        rows.append(dict(symbol=sym, tf=tf, bars=len(merged),
+                                         first=str(merged["time"].iloc[0]) if len(merged) else "-",
+                                         last=str(merged["time"].iloc[-1]) if len(merged) else "-"))
+                        print(f"ok  {sym:<10} {tf:<5} {len(merged)} bars (yfinance)", flush=True)
+                    except Exception as exc:  # noqa: BLE001
+                        failed.append(f"{sym} {tf} (yf): {exc}")
+                        print(f"ERR {sym} {tf} (yf): {exc}", flush=True)
+        except Exception as exc:  # noqa: BLE001
+            failed.append(f"yfinance pass failed to import/run: {exc}")
+
     if rows:
         write_coverage(rows)
-    print(f"\nrefreshed {pulled} series, {len(failed)} failures, "
-          f"{client.calls_today()}/{client.per_day} calls used today.")
+    used = f"{client.calls_today()}/{client.per_day}" if client else "0 (no TD key)"
+    print(f"\nrefreshed {pulled} series, {len(failed)} failures, {used} TD calls used today.")
     if failed:
         log_blocker("Series that failed to pull (verify symbols / availability on free plan):\n- "
                     + "\n- ".join(failed[:40]))

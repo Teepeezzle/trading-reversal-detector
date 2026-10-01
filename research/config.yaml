@@ -22,10 +22,14 @@ universe:
     symbols: ["EUR/JPY","GBP/JPY","EUR/GBP","AUD/JPY","EUR/NZD","GBP/NZD","GBP/AUD"]
   metals:
     session: fxmajor
-    symbols: ["XAU/USD","XAG/USD"]
-  oil:
-    session: ny
-    symbols: ["WTI/USD","BRENT/USD"]      # TBD on free plan — verify, may be "USOIL"/"UKOIL"
+    symbols: ["XAU/USD"]                   # XAG/USD not on TD free -> yfinance (B-003 / D-008)
   crypto:
     session: always
     symbols: ["BTC/USD","ETH/USD","SOL/USD","XRP/USD","BNB/USD","DOGE/USD","AVAX/USD","LINK/USD","LTC/USD"]
+
+# Instruments sourced from yfinance (B-003: not on Twelve Data free). Same lake format.
+# These are SOLE-source (no TD cross-check possible). yfinance 15m ~60d, 1h ~730d.
+yfinance:
+  - {symbol: "XAG/USD",   yf: "SI=F", asset_class: metals, session: fxmajor}
+  - {symbol: "WTI/USD",   yf: "CL=F", asset_class: oil,    session: ny}
+  - {symbol: "BRENT/USD", yf: "BZ=F", asset_class: oil,    session: ny}
