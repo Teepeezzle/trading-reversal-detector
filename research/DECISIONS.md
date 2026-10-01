@@ -4,6 +4,12 @@ Append-only. Newest at top. Each entry: date · decision · why · reversible?
 
 ---
 
+### 2026-10-01 · D-007 · Volume features restricted to FX/metals/oil (crypto has no free volume)
+First live run confirmed Twelve Data free crypto quotes omit `volume`. **Decision:** volume
+primitives (OBV, volume-spike, VWAP-by-volume) are tested on FX/metals/oil only; crypto uses
+price/volatility/structure primitives. The client now tolerates missing volume (sets 0.0).
+Revisit if a crypto volume source is added. _Reversible: yes._
+
 ### 2026-10-01 · D-006 · Lake persisted via Actions cache + artifact (not git) for now
 The OHLCV lake is kept out of git (`research/.gitignore`) and persisted via Actions
 **cache** (fast, free) + an uploaded **artifact** (downloadable, 14-day retention). Reason:

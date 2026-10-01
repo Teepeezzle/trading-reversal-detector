@@ -37,15 +37,16 @@ Success = documented edge net of costs + a daily top-5 actionable list.
   `research/jobs/data_refresh.py` (idempotent lake builder), `research/config.yaml` (universe).
 - Off-peak workflow written: `.github/workflows/research-data-refresh.yml` (session-aware).
 
-## Blocked (see BLOCKERS.md) — needs user action before data can flow
-1. **TWELVEDATA_API_KEY** must be created (free) and added as a GitHub **Secret**.
-2. **Merge this PR to main** — scheduled workflows only run from the default branch.
+## Blocked
+None — B-001 (key) & B-002 (merge) both resolved 2026-10-01. Pipeline authenticated and live.
+First run surfaced + fixed a client bug (crypto has no volume on free tier → D-007).
 
-## Next (Phase 1, once unblocked)
-1. First `data_refresh` run → build `/research/data` lake, record real coverage + exact
-   Twelve Data symbol strings in DATA_MANIFEST.md.
-2. Reconcile a sample (e.g. EUR/USD 1h, BTC/USD 1h) Twelve Data vs yfinance; record tolerance.
+## Next (Phase 1)
+1. Full `data_refresh --classes all` run → build the lake, record real coverage + exact Twelve
+   Data symbols (verify WTI/BRENT especially) in DATA_COVERAGE.md / DATA_MANIFEST.md.
+2. Reconcile a sample (EUR/USD 1h, BTC/USD 1h) Twelve Data vs yfinance; record tolerance.
 3. Then PHASE 2 — indicator survey into HYPOTHESIS_REGISTRY (portable functions only).
+   Note D-007: volume primitives are FX/metals/oil-only.
 
 ## Open questions
 - Exact Twelve Data symbols for WTI/Brent on the free plan (verify on first pull).
