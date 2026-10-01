@@ -19,8 +19,13 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
   Macro-event/sentiment = Bigdata.com, MCP-ONLY interactive (D-009), excluded from sweeps.
 
 ## Phase 3 — single-factor testing (min 100 trades; judge on validation set)
-- ⬜ **T-301** For each primitive, fixed simple rule, both horizons, per asset class.
-  Log hitrate/expectancy/PF/maxDD/trades/avg-hold to HYPOTHESIS_REGISTRY. Discard on val.
+- ✅ **T-300** Portable backtest engine built & validated: backtest.py/costs.py/single_factor.py
+  (pooled, no-lookahead, net-of-cost, benchmarks, 60/20/20). D-011.
+- ⬜ **T-301** Build `jobs/sweep.py` — loop rules × params × classes × horizons × TFs → registry
+  (idempotent/resumable). Pool per asset class (D-011); FX = majors+crosses for ≥100 val.
+- ⬜ **T-302** `research-sweep` nightly workflow (matrix over asset classes; cache /data).
+- ⬜ **T-303** On the batch: 2× cost re-run, parameter sensitivity, multiple-testing correction
+  (Deflated Sharpe / Bonferroni); report # hypotheses tested. Candidates → CANDIDATES.md.
 
 ## Phase 4+ (queued, not started)
 - ⬜ **T-401** Combine Phase-3 survivors across regime buckets (trend/range, vol hi/lo, risk on/off).

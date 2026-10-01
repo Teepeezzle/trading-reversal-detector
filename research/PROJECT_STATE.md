@@ -7,8 +7,9 @@ INTRADAY (open→same-session close) and SHORT SWING (≤5 trading days) across
 Forex, Metals (XAU/XAG), Oil (WTI/Brent), and Crypto (BTC/ETH/liquid alts).
 Success = documented edge net of costs + a daily top-5 actionable list.
 
-**Current phase:** PHASE 2 — Indicator survey done (catalogue + portable indicators.py).
-Phase 0 (setup) + Phase 1 (data foundation, reconciled) COMPLETE. Next: Phase 3 single-factor tests.
+**Current phase:** PHASE 3 — backtest engine BUILT & VALIDATED (pooled single-factor, no-lookahead,
+net-of-cost, buy-hold + random-entry benchmarks, 60/20/20 split, ≥100-trade gate). Phases 0–2 done.
+Next: systematic sweep across rules × params × classes × horizons + multiple-testing correction.
 
 ---
 
@@ -44,13 +45,18 @@ Phase 0 (setup) + Phase 1 (data foundation, reconciled) COMPLETE. Next: Phase 3 
 - **Phase 2 done:** indicator catalogue (PHASE2_INDICATORS.md) + portable `research/src/indicators.py`.
 - Bigdata.com assessed → interactive macro-event overlay only, MCP-ONLY/PAYG (D-009). No open blockers.
 
-## Next — PHASE 3 (single-factor testing)
-1. Build `research/jobs/backtest.py` (portable): no-lookahead, net-of-cost intraday + ≤5-day swing
-   engine with benchmarks (buy-hold + random-entry control). Design as resumable batches.
-2. Add a `research-sweep` workflow pulling tasks from QUEUE (T-301), appending to HYPOTHESIS_REGISTRY.
-3. Test each primitive solo (min 100 trades), judge on validation split — not training.
-   Honour: D-007 (volume = FX/metals/oil only); 15m depth ~52d/~60d is the intraday limit;
-   apply 2× cost + parameter-sensitivity + multiple-testing correction from the start.
+## Done this session (Phase 3 engine)
+- `research/src/backtest.py` (simulate/stats/split/benchmarks), `costs.py` (per-class net costs),
+  `jobs/single_factor.py` (pooled tester, --symbol ALL). Verified on real lake data.
+- Finding (D-011): pool a rule across the asset class for sample size; no naive factor passed.
+
+## Next — PHASE 3 sweep
+1. `research/jobs/sweep.py` — loop rules × params × asset-classes × horizons × TFs (from QUEUE),
+   append each result row to HYPOTHESIS_REGISTRY.csv. Idempotent / resumable batches.
+2. `research-sweep` workflow (nightly), matrix over asset classes; Actions cache for /data.
+3. On the batch: apply **2× cost** re-run on anything positive, **parameter sensitivity**
+   (±1–2 around any winner), and **multiple-testing correction** (Deflated Sharpe / Bonferroni);
+   report how many hypotheses were tested. Judge PASS only on validation; holdout stays sealed.
 
 ## Open questions
 - Exact Twelve Data symbols for WTI/Brent on the free plan (verify on first pull).
