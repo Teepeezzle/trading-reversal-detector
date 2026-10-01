@@ -31,6 +31,9 @@ Partial/forming bars are dropped (no look-ahead).
 | _pending first run_ | | | | | | | |
 
 ## Known limitations
+- **No crypto volume on Twelve Data free** (confirmed first run 2026-10-01): crypto quotes
+  omit the `volume` column → volume-based indicators (OBV, volume-spike) are **unavailable for
+  crypto** on this tier. Volume features are FX/metals/oil-only unless sourced elsewhere.
 - Survivorship not corrected (DECISIONS D-004): currently-listed instruments only.
 - Twelve Data free history depth is finite (≤5000 bars/call); true intraday depth per
   timeframe is measured and recorded here on first pull.

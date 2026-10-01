@@ -116,10 +116,18 @@ class TwelveDataClient:
         if not values:
             raise TwelveDataError(f"{symbol} {interval}: empty response ({js})")
         df = pd.DataFrame(values)
+        need = {"datetime", "open", "high", "low", "close"}
+        missing = need - set(df.columns)
+        if missing:
+            raise TwelveDataError(f"{symbol} {interval}: response missing columns {sorted(missing)}")
         df["time"] = pd.to_datetime(df["datetime"], utc=True).dt.tz_localize(None)
         for c in ("open", "high", "low", "close"):
             df[c] = pd.to_numeric(df[c], errors="coerce")
-        df["volume"] = pd.to_numeric(df.get("volume", 0), errors="coerce").fillna(0)
+        # Some asset classes on the free plan (e.g. crypto/forex quotes) omit volume.
+        if "volume" in df.columns:
+            df["volume"] = pd.to_numeric(df["volume"], errors="coerce").fillna(0.0)
+        else:
+            df["volume"] = 0.0
         df = df[["time", "open", "high", "low", "close", "volume"]].dropna(
             subset=["open", "high", "low", "close"]).sort_values("time").reset_index(drop=True)
         return df
