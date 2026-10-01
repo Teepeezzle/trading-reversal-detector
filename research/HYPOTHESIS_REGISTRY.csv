@@ -1,0 +1,2 @@
+id,date,phase,hypothesis,asset_class,symbols,timeframe,horizon,params,entry_rule,exit_rule,cost_model,sample_train,sample_val,winrate_train,winrate_val,expectancy_R_train,expectancy_R_val,profit_factor_val,max_dd_R,sharpe_val,benchmark_bh_R,benchmark_random_R,survived,reject_reason,result_link,run_id
+EX-000,2026-10-01,2,EXAMPLE ROW (delete) — RSI(14) oversold long on 1h,forex,EUR/USD,1h,swing,"rsi_len=14,os=30",close crosses up through 30,"TP=2R or 5-day hard exit; SL=1.5xATR14",spread+2bp slip+swap,0,0,,,,,,,,,,pending,,,

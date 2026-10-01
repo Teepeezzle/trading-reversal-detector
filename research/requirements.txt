@@ -1,0 +1,4 @@
+# Portable research deps — identical off-peak (Actions) and interactively.
+requests>=2.31.0
+pandas>=2.0.0
+pyyaml>=6.0

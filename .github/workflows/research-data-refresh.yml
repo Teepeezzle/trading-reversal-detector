@@ -1,0 +1,84 @@
+name: Research — Data Refresh (off-peak)
+
+# Phase-1 data lake builder. Pulls OHLCV from Twelve Data (free plan) into
+# research/data and uploads it as an artifact + persists via Actions cache.
+# Session-aware: crypto (24/7) on an early window; everything after the NY close so
+# FX/metals/oil daily bars are complete. $0 budget: the client self-throttles to the
+# free tier (8/min, 800/day); a missing key or spent budget logs to BLOCKERS and exits 0.
+#
+# NOTE: scheduled runs only fire from the DEFAULT branch — this starts working once the
+# bootstrap PR is merged to main AND the TWELVEDATA_API_KEY secret is set (BLOCKERS B-001/2).
+on:
+  schedule:
+    - cron: "30 22 * * *"      # 22:30 UTC — full refresh after NY close (FX/metals/oil complete)
+    - cron: "30 10 * * *"      # 10:30 UTC — crypto-only (uses the other off-peak window)
+  workflow_dispatch:
+    inputs:
+      classes:
+        description: "'all' or CSV e.g. 'crypto' / 'forex_majors,metals'"
+        required: false
+        default: "all"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: research-data-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Refresh OHLCV lake
+    runs-on: ubuntu-latest
+    timeout-minutes: 45          # 108 series / 8-per-min ~ 15 min; headroom for retries
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install research deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r research/requirements.txt
+
+      # Cache the lake + the daily usage counter so budget is correct across runs.
+      - name: Restore data lake
+        uses: actions/cache@v5
+        with:
+          path: research/data
+          key: research-lake-${{ github.run_id }}
+          restore-keys: |
+            research-lake-
+
+      - name: Pick asset classes (crypto-only on the 10:30 window)
+        id: pick
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "classes=${{ github.event.inputs.classes }}" >> "$GITHUB_OUTPUT"
+          elif [ "$(date -u +%H)" = "10" ]; then
+            echo "classes=crypto" >> "$GITHUB_OUTPUT"
+          else
+            echo "classes=all" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run data refresh
+        env:
+          TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+          PYTHONIOENCODING: "utf-8"
+        run: python research/jobs/data_refresh.py --classes "${{ steps.pick.outputs.classes }}"
+
+      - name: Upload lake + coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-data-lake
+          path: |
+            research/data/**/*.csv.gz
+            research/DATA_COVERAGE.md
+          if-no-files-found: ignore
+          retention-days: 14
