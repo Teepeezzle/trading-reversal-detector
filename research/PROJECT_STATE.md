@@ -37,16 +37,18 @@ Success = documented edge net of costs + a daily top-5 actionable list.
   `research/jobs/data_refresh.py` (idempotent lake builder), `research/config.yaml` (universe).
 - Off-peak workflow written: `.github/workflows/research-data-refresh.yml` (session-aware).
 
+## Status: Phase 1 data foundation LIVE for FX (14) + gold + crypto (9) = 24 instruments × 4 TFs.
+Lake pulls verified end-to-end (144/800 calls). Real depths recorded in DATA_MANIFEST.
+
 ## Blocked
-None — B-001 (key) & B-002 (merge) both resolved 2026-10-01. Pipeline authenticated and live.
-First run surfaced + fixed a client bug (crypto has no volume on free tier → D-007).
+- **B-003** — silver (XAG/USD) + oil (WTI, Brent) 404 on TD free. Decision pending
+  (recommend yfinance fallback: SI=F/CL=F/BZ=F).
 
 ## Next (Phase 1)
-1. Full `data_refresh --classes all` run → build the lake, record real coverage + exact Twelve
-   Data symbols (verify WTI/BRENT especially) in DATA_COVERAGE.md / DATA_MANIFEST.md.
+1. **Resolve B-003** (silver/oil source) → extend the lake accordingly.
 2. Reconcile a sample (EUR/USD 1h, BTC/USD 1h) Twelve Data vs yfinance; record tolerance.
 3. Then PHASE 2 — indicator survey into HYPOTHESIS_REGISTRY (portable functions only).
-   Note D-007: volume primitives are FX/metals/oil-only.
+   Note D-007: volume primitives are FX/metals/oil-only; 15m depth ~52d is the binding limit.
 
 ## Open questions
 - Exact Twelve Data symbols for WTI/Brent on the free plan (verify on first pull).
