@@ -55,10 +55,18 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
   `jobs/cryptoalt_refresh.py` (→ data/crypto_alt/), `jobs/alt_sweep.py` (phase 8), robustness phase-8
   re-eval path, + `research-cryptoalt-refresh` / `research-alt-sweep` workflows. Smoke-tested
   end-to-end (2-symbol lake: enrich, families fire, sweep writes 60 rows, phase-8 judge routes).
-  ⛔ **BLOCKED (B-004):** CI fetch returned 0 rows — Bybit (like Binance) geo-blocks US Actions IPs
-  (local de-risk passed only because this box isn't US). Code ready; needs a data-source decision:
-  (a) CoinGlass free API + `COINGLASS_API_KEY` secret, (b) fetch locally + commit the small lake, or
-  (c) drop Step B. See BLOCKERS.md B-004.
+  B-004 geo-block RESOLVED via CoinGlass (D-022, user chose option a). **Remaining:** rewire
+  `cryptoalt_client.py` to CoinGlass funding (`CG-API-KEY` header, free tier 4h+; funding is 8h so fine)
+  + use the existing TD crypto OHLCV lake for bars; defer basis. **Needs `COINGLASS_API_KEY` secret
+  (user action).** Then: cryptoalt_refresh → alt_sweep → robustness phase=8.
+
+## News / fundamental layer (STANDING RULE D-021 — spec: NEWS_LAYER.md). CONTEXT & FILTER, never standalone.
+- ⬜ **N-1** FRED fetcher → US macro release dates + surprises (CPI/PCE/GDP/NFP/rates); `FRED_API_KEY` secret. FX/metals.
+- ⬜ **N-2** EIA fetcher → weekly crude inventories + surprise vs forecast; `EIA_API_KEY` secret. Oil.
+- ⬜ **N-3** Economic-calendar fetcher (Finnhub/FMP free) → forward high/med/low events; that key. Event calendar (§3).
+- ⬜ **N-4** `src/news.py` — news schema + no-lookahead join (`first_available_at <= bar_open`) + 30-min pre-release gate.
+- ⬜ **N-5** Gate + regime-tag into the backtest/gauntlet; each news factor = a registry hypothesis (own MTC family).
+- ⬜ **N-6** DAILY_SIGNALS briefing line: news-context tag + invalidating scheduled event (§9).
 - ⬜ **T-501** 60/20/20 split + walk-forward; holdout touched ONCE at the end.
 - ⬜ **T-601** 4-week forward paper test; log every signal taken or not.
 - ⬜ **T-701** Scanner + signal spec + daily morning routine.
