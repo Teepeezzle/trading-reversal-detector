@@ -8,11 +8,17 @@ exists, this stays empty by design.
 ## Briefing 2026-10-02
 **No trades today.** No validated candidate exists yet (Phases 3–9 found 0 MTC-significant edges); an empty list is the honest output. The event-risk calendar below is live.
 
-### Event-risk calendar (next 10 days, projected from release cadence)
-| event | class | next (approx, UTC) | cadence (d) |
-|---|---|---|--:|
-| CrudeInventories ⚠high | oil | 2026-10-07 14:30 | 7.0 |
-| CPI ⚠high | forex_macro | 2026-10-10 12:30 | 29.0 |
+### Event-risk calendar (next 10 days — 7 official FXMacroData times, rest projected)
+| event | class | next (UTC) | source |
+|---|---|---|---|
+| trade_balance | forex_macro | 2026-10-06 12:30 | official |
+| CrudeInventories ⚠high | oil | 2026-10-07 14:30 ~ | projected |
+| consumer_confidence | forex_macro | 2026-10-07 15:00 | official |
+| business_confidence | forex_macro | 2026-10-08 14:00 | official |
+| core_inflation ⚠high | forex_macro | 2026-10-14 12:30 | official |
+| inflation ⚠high | forex_macro | 2026-10-14 12:30 | official |
+| ppi | forex_macro | 2026-10-15 12:30 | official |
+| retail_sales ⚠high | forex_macro | 2026-10-15 12:30 | official |
 
 _Per-signal briefing (once candidates are live): `news: <tag>; next event risk: <event ~date>` — see brief_for_signal(). No new intraday entry within 30 min of a ⚠high event; no holding a fresh position through one without a logged reason (D-021 §3)._
 
