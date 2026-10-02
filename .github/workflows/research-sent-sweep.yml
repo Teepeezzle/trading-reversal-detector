@@ -1,0 +1,80 @@
+name: Research — Sentiment Sweep / Phase 10 (off-peak)
+
+# PHASE 10 / N-8 AV news-sentiment sweep: families sent_rev (fade z) / sent_mom (follow z) over the
+# tradable universe, joined no-lookahead (D+1) to the committed daily sentiment series
+# (research/altdata_committed/news/av_sentiment.csv.gz, built by research-avsentiment-refresh).
+# Reads the price lake from the cache (built by research-data-refresh). No data pulled here, no secrets.
+# Idempotent + resumable. Judge with research-robustness (phase=10) — a PASS still needs the full gauntlet.
+#
+# Run this only AFTER the sentiment archive has accrued depth (~1y). Until then the sweep writes the
+# honest "no data yet" report and appends nothing.
+#
+# ONE-TIME SETTING (if create-PR denied): Settings -> Actions -> General -> Workflow permissions ->
+# enable "Allow GitHub Actions to create and approve pull requests".
+on:
+  workflow_dispatch:
+    inputs:
+      max:
+        description: "max NEW hypotheses this run (resumable; 0=unlimited)"
+        required: false
+        default: "0"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: research-sent-sweep
+  cancel-in-progress: false
+
+jobs:
+  sentsweep:
+    name: Run Phase-10 sentiment sweep
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false   # avoid create-pull-request "Duplicate header: Authorization" (HTTP 400)
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install research deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r research/requirements.txt
+
+      - name: Restore data lake (prices)
+        uses: actions/cache/restore@v5
+        with:
+          key: research-sentsweep-readonly
+          path: research/data
+          restore-keys: |
+            research-lake-
+
+      - name: Run sentiment sweep
+        run: |
+          python research/jobs/sent_sweep.py --max "${{ github.event.inputs.max || '0' }}"
+
+      - name: Open/update results PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          add-paths: |
+            research/HYPOTHESIS_REGISTRY.csv
+            research/SENT_STUDY.md
+          branch: research/sent-results
+          base: main
+          commit-message: "research: Phase-10 sentiment sweep results (auto)"
+          title: "research: Phase-10 AV-sentiment sweep results (auto-updating, N-8)"
+          body: |
+            Auto-generated Phase-10 sweep of AV news-sentiment factor families (sent_rev / sent_mom).
+            New phase-10 rows appended to HYPOTHESIS_REGISTRY.csv (idempotent) + SENT_STUDY.md refreshed.
+            Judge with research-robustness (phase=10); any PASS still needs the full gauntlet (2x cost +
+            sensitivity + Bonferroni + Deflated Sharpe) before it is a candidate. News = context/filter
+            (D-021): a sentiment factor is an edge only if it clears MTC.
+          delete-branch: false
