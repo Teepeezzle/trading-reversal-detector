@@ -1,0 +1,67 @@
+name: Research — Crypto Alt-Data Refresh / Phase 8 (off-peak)
+
+# Builds the crypto ALT lake (perp OHLCV + funding + perp/spot basis) from Bybit v5 (no key,
+# US-reachable; Binance 451s from US Actions). Writes research/data/crypto_alt/ under the main lake
+# and saves the lake cache so the alt sweep reads it. FREE, no secrets. Run once, then alt_sweep +
+# research-robustness (phase 8).
+on:
+  workflow_dispatch:
+    inputs:
+      years:
+        description: "years of history to fetch"
+        required: false
+        default: "2"
+      symbols:
+        description: "'all' or CSV e.g. 'BTC/USD,ETH/USD'"
+        required: false
+        default: "all"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: research-data-refresh      # shares the lake-cache group
+  cancel-in-progress: false
+
+jobs:
+  alt:
+    name: Build crypto alt lake (Bybit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install research deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r research/requirements.txt
+
+      - name: Restore + save data lake (build on the existing one)
+        uses: actions/cache@v5
+        with:
+          path: research/data
+          key: research-lake-${{ github.run_id }}
+          restore-keys: |
+            research-lake-
+
+      - name: Crypto alt refresh
+        run: |
+          python research/jobs/cryptoalt_refresh.py \
+            --years "${{ github.event.inputs.years || '2' }}" \
+            --symbols "${{ github.event.inputs.symbols || 'all' }}"
+
+      - name: Upload alt-lake artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-crypto-alt-lake
+          path: research/data/crypto_alt/**/*.csv.gz
+          if-no-files-found: ignore
+          retention-days: 14

@@ -1,0 +1,71 @@
+name: Research — Alt-Data Sweep / Phase 8 (off-peak)
+
+# PHASE 8 crypto alt-data sweep: funding/basis families (fund_rev, fund_mom, basis_rev) over the
+# crypto universe. Reads the crypto_alt lake from the cache (built by research-cryptoalt-refresh).
+# No data pulled here, no secrets. Idempotent + resumable. Judge with research-robustness (phase=8).
+#
+# ONE-TIME SETTING (if create-PR denied): Settings -> Actions -> General -> Workflow permissions ->
+# enable "Allow GitHub Actions to create and approve pull requests".
+on:
+  workflow_dispatch:
+    inputs:
+      max:
+        description: "max NEW hypotheses this run (resumable; 0=unlimited)"
+        required: false
+        default: "0"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: research-alt-sweep
+  cancel-in-progress: false
+
+jobs:
+  altsweep:
+    name: Run Phase-8 alt-data sweep
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false   # avoid create-pull-request "Duplicate header: Authorization" (HTTP 400)
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install research deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r research/requirements.txt
+
+      - name: Restore data lake (incl. crypto_alt)
+        uses: actions/cache/restore@v5
+        with:
+          key: research-altsweep-readonly
+          path: research/data
+          restore-keys: |
+            research-lake-
+
+      - name: Run alt-data sweep
+        run: |
+          python research/jobs/alt_sweep.py --max "${{ github.event.inputs.max || '0' }}" --rc_iters 8
+
+      - name: Open/update results PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          add-paths: research/HYPOTHESIS_REGISTRY.csv
+          branch: research/alt-results
+          base: main
+          commit-message: "research: Phase-8 alt-data sweep results (auto)"
+          title: "research: Phase-8 crypto alt-data sweep results (auto-updating)"
+          body: |
+            Auto-generated Phase-8 sweep of crypto funding/basis families. New phase-8 rows appended
+            to HYPOTHESIS_REGISTRY.csv (idempotent). Judge with research-robustness (phase=8); any PASS
+            still needs the full gauntlet before it is a candidate.
+          delete-branch: false
