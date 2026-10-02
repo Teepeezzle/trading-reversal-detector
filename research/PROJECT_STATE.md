@@ -12,13 +12,12 @@ T-303 phase=6 (N=132) → **0 candidates** (best crypto 15m momentum, Sharpe 0.0
 **PROGRAM RESULT: ~1,200 hypotheses across Phases 3–6, every structurally-distinct approach, 0
 deployable edges.** No robust short-horizon technical edge exists under the $0/free-data constraints
 with this gauntlet. Holdout NEVER touched. **Phase 7 (reopen for ~$0) — user chose Both, A first.** T-405 scoped (DATA_OPTIONS.md).
-**Step A BUILT (T-406):** deep FX/metals from **HistData** (free M1 → 15m/1h/4h/1D, years of depth) —
-`src/histdata_client.py` (validated live) + `jobs/histdata_refresh.py` + `research-histdata-refresh`
-workflow. (Switched Dukascopy→HistData: Dukascopy ticks are 1 file/hour ≈ unusable in Actions;
-HistData = monthly ZIPs. Oil not on HistData → stays yfinance.) NEXT: dispatch the deep refresh (3y)
-→ verify depth → `deep_resweep` (re-run phase-3 + phase-5 grids on deep FX/metals as phase 7) →
-robustness phase=7 — the honest retest of whether edges were real-but-under-sampled. Then **Step B**
-(T-407): Binance deep crypto + funding/OI/basis alt-data families.
+**Step A DONE (T-406, D-020):** deep FX/metals from HistData (~21mo, 5–8× depth) re-swept — 480
+configs → 19 base-PASS → T-303 phase=7 (N=230) → **0 candidates**. Depth REFUTED "under-powered":
+high-n rules regressed to Sharpe ≈0.01 / p≈0.42 — the old near-misses were small-sample inflation.
+No FX/metals single-factor edge, confirmed with real power. Oil not on HistData (unchanged).
+**NEXT = Step B (T-407):** crypto alt-data — Binance deep OHLCV + CoinGlass/CoinAPI funding/OI/basis
+→ NEW economic factor families (carry, funding-momentum, perp-basis reversion). Holdout untouched.
 Next: run research-combo-sweep in CI → merge results → research-robustness `phase=4`; then Phase 5.
 
 ---
@@ -105,4 +104,4 @@ Phase 6 (4-week forward paper) → Phase 7 (deploy). Keep pooling per class (D-0
 - How deep is Twelve Data free 15m/1h history in practice? (measure, record).
 - Crypto alt universe + any delisting handling we can approximate.
 
-_Last updated: 2026-10-02 (session 2 — Phase 7 Step A built: HistData deep FX/metals fetcher, ready to fetch + re-sweep)._
+_Last updated: 2026-10-02 (session 2 — Phase 7 Step A done: deep FX/metals 0 candidates, power hypothesis refuted; Step B next)._
