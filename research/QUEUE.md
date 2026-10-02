@@ -50,8 +50,13 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
 - ✅ **T-406 / Phase 7 Step A — DEEP FX/metals (HistData)** DONE (D-020). Deep lake built (~21mo,
   5–8× depth), 480 configs re-swept (phase 7), T-303 N=230 → **0 candidates**. Depth REFUTED the
   "under-powered" hypothesis: high-n rules regressed to Sharpe ≈0.01 (p≈0.42). No FX/metals edge.
-- ⬜ **T-407 / Phase 7 Step B — crypto alt-data** Binance deep OHLCV + CoinGlass/CoinAPI funding/OI/
-  basis fetchers → new economic factor families (carry, funding-momentum, perp-basis reversion).
+- 🔵 **T-407 / Phase 8 Step B — crypto alt-data** FOUNDATION built: `src/cryptoalt_client.py` (Bybit
+  v5 public — chosen over Binance, which 451s from US Actions; validated: 2y funding history + perp &
+  spot OHLCV, US-reachable). **REMAINING:** (1) `src/cryptoalt.py` — enriched panel (perp OHLCV +
+  funding ffilled + perp/spot basis) + families `fund_rev` (fade funding extremes), `fund_mom` (carry
+  trend), `basis_rev` (fade perp premium); reuse bt.simulate SL/TP + stats/split + benchmarks; (2)
+  `jobs/cryptoalt_refresh.py` → alt lake (data_alt/); (3) `jobs/alt_sweep.py` families×params×TF×hz →
+  phase-8 rows; (4) robustness phase-8 re-eval path; (5) workflows; (6) CI run → gauntlet.
 - ⬜ **T-501** 60/20/20 split + walk-forward; holdout touched ONCE at the end.
 - ⬜ **T-601** 4-week forward paper test; log every signal taken or not.
 - ⬜ **T-701** Scanner + signal spec + daily morning routine.
