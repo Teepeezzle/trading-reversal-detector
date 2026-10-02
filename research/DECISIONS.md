@@ -17,6 +17,19 @@ timestamped official feeds (FRED/EIA/economic-calendar), log source+pull-time, e
 DAILY_SIGNALS briefing line per signal (news tag + invalidating scheduled event). Applies across all
 future phases alongside the technical work. _Reversible: no (standing directive) — mechanics tunable._
 
+### 2026-10-02 · D-025 · Phase 9 N-5 verdict: news gates mostly cut trades; surprise-sign is the real effect, but 0 clear MTC
+Ran the news-gate study (D-021 §6) on the deep FX/metals 1h/4h lake + FX/metals/oil macro news (FRED
+235 events + EIA 195). 380 base-vs-gated cells → **11 improve expectancy, 131 just-cut-trades, 48 hurt,
+175 thin; 0 clear the N=196 MTC bar** (Bonferroni p<2.6e-4, DSR>0.95). So a news filter overwhelmingly
+removes trades without raising expectancy. The genuine improvers cluster in the **surprise-SIGN regime
+split** (surp_pos/surp_neg) and the **quiet** regime — economically coherent (e.g. oil roc_mom base
++0.047R → +0.205R after a positive crude-inventory surprise; FX roc_mom flips -0.051R → +0.075R with
+the surprise sign) — but none are significant after correction. Consistent with the whole program:
+coherent tilts, no MTC-significant standalone edge. Takeaways: (1) news is confirmed useful as a
+REGIME TAG / context, not a standalone signal (as D-021 intends); (2) the surprise-sign effect is the
+most promising lead and would sharpen with a true consensus surprise (actual-vs-forecast) from an
+economic calendar — motivates N-3. Holdout untouched. _Reversible: yes._
+
 ### 2026-10-02 · D-024 · Phase 8 Step B verdict: crypto funding families also yield 0 candidates
 Ran the alt-data sweep on the full 17-coin / 2y committed-funding lake: 60 hypotheses (fund_rev,
 fund_mom, basis_rev × params × TF × horizon) → 2 base-gate PASS → T-303 `--phase 8` (N=26, Bonferroni

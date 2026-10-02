@@ -5,16 +5,13 @@ Open blockers at top. Jobs that hit a blocker log it here and exit cleanly (neve
 ---
 
 ## OPEN
-- **B-005 · FRED_API_KEY is malformed** — News layer N-1. The CI news refresh got HTTP 400 from FRED
-  on every series: *"The value for variable api_key is not a 32 character alpha-numeric lower-case
-  string."* So the stored `FRED_API_KEY` secret is not a valid FRED key. **Fix:** get the exact 32-char
-  lowercase key from https://fredaccount.stlouisfed.org/apikeys (My Account → API Keys), re-add it as
-  the `FRED_API_KEY` secret (no quotes/spaces/newline), then re-dispatch research-news-refresh. (EIA
-  worked — 195 crude-inventory releases landed; only FRED is blocked.)
+_(none)_
 
 ---
 
 ## RESOLVED
+- **B-005 · FRED_API_KEY malformed** — ✅ 2026-10-02. User re-added a valid key; FRED now returns
+  235 macro release events across 6 series (N-1 live).
 - **B-004 · Crypto funding geo-blocked from US Actions + CoinGlass free tier paid-gated** — ✅
   2026-10-02 (D-023). Bybit/Binance 451 from US runners; CoinGlass historical funding = "401 Upgrade
   plan" on free. Funding (208 KB) fetched once via Bybit from a non-US box and COMMITTED to
