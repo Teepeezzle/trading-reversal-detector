@@ -7,13 +7,14 @@ INTRADAY (open→same-session close) and SHORT SWING (≤5 trading days) across
 Forex, Metals (XAU/XAG), Oil (WTI/Brent), and Crypto (BTC/ETH/liquid alts).
 Success = documented edge net of costs + a daily top-5 actionable list.
 
-**Current phase:** PHASE 4.5 COMPLETE — power boost run to its conclusion (D-014/D-015). The crypto
-15m `vol_hi` breakout looked strong on 9 coins (Sharpe 0.28, DSR 0.895) but **collapsed when the
-universe was widened to 17** (Sharpe 0.16, DSR 0.43): it was small-sample/selection luck, not a
-robust edge. Cross-class pooling was dead (dilution). **Across Phases 3–4.5 (~340 hypotheses):
-0 deployable edges.** The breakout lead is retired. Holdout never touched.
-NEXT (T-403): a genuinely NEW direction is needed — decide WITH the user before building (new factor
-families vs. reconsidering the free-data/budget constraint). Do not grind the dead breakout lead.
+**Current phase:** PHASE 5 BUILT (T-403, D-016) — NEW factor families (user-directed). Phases 3–4.5
+retired the breakout/mean-reversion lines (0 robust edges; the 15m lead died on universe widening,
+D-015). Phase 5 opens a fresh single-factor search: `roc_mom`, `bb_breakout`, `ema_pullback`,
+`stoch_rev`, `macd_mom` across 15m/1h/2h/3h/4h/1D (2h/3h resampled from 1h). `jobs/family_sweep.py`
+(~540 hypotheses) + `research-family-sweep` workflow; its own MTC family (`robustness.py --phase 5`).
+Validated locally. Holdout never touched.
+NEXT: run research-family-sweep in CI (on the widened 17-coin lake) → merge results → research-
+robustness phase=5. Apply the D-015 lesson: distrust any lead until it holds on a broad cross-section.
 Next: run research-combo-sweep in CI → merge results → research-robustness `phase=4`; then Phase 5.
 
 ---
@@ -100,4 +101,4 @@ Phase 6 (4-week forward paper) → Phase 7 (deploy). Keep pooling per class (D-0
 - How deep is Twelve Data free 15m/1h history in practice? (measure, record).
 - Crypto alt universe + any delisting handling we can approximate.
 
-_Last updated: 2026-10-02 (session 2 — Phase 4.5 done: widened universe killed the breakout edge; 0 candidates; new direction needed)._
+_Last updated: 2026-10-02 (session 2 — Phase 5 built: new factor families across 15m–1D, ready to sweep in CI)._

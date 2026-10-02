@@ -39,11 +39,14 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
 - ✅ **T-402** Power boost (Phase 4.5, D-014/D-015) RUN. Move 1 (cross-class) dead; Move 2 (crypto
   15m) looked strong on 9 coins (Sharpe 0.28, DSR 0.895) but Move 3 (widen 9→17) **collapsed it**
   (Sharpe 0.16, DSR 0.43) — the edge was small-sample luck. **No candidate. Breakout lead retired.**
-- ⬜ **T-403** NEW DIRECTION needed (breakout line exhausted). Options: (a) new factor families —
-  momentum continuation, volatility-breakout with different exits, cross-sectional ranking, time-of-day;
-  (b) reconsider the data/budget constraint (free intraday depth may be the binding limiter). Decide
-  with the user before building. Phase 5 walk-forward only once a lead actually survives the gauntlet
-  on a broad cross-section.
+- 🔵 **T-403 / Phase 5** NEW factor families BUILT (user chose this direction, D-016): `roc_mom`,
+  `bb_breakout`, `ema_pullback`, `stoch_rev`, `macd_mom` in `factors.RULES`; `jobs/family_sweep.py`
+  (~540 hypotheses, 15m/1h/2h/3h/4h/1D, 2h/3h resampled from 1h) + `research-family-sweep` workflow;
+  phase-5 MTC family via `robustness.py --phase 5`. Validated locally (resampling + rules + partial
+  sweep + phase-5 robustness). **Next: run research-family-sweep in CI → merge results →
+  research-robustness phase=5.** Watch for over-fit leads; demand a broad cross-section (lesson of D-015).
+- ⬜ **T-404** (deferred) cross-sectional ranking (long strongest / short weakest in a class) — needs a
+  cross-instrument engine change; separate task if single-factor families also come up empty.
 - ⬜ **T-501** 60/20/20 split + walk-forward; holdout touched ONCE at the end.
 - ⬜ **T-601** 4-week forward paper test; log every signal taken or not.
 - ⬜ **T-701** Scanner + signal spec + daily morning routine.
