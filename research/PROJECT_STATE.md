@@ -7,11 +7,11 @@ INTRADAY (open→same-session close) and SHORT SWING (≤5 trading days) across
 Forex, Metals (XAU/XAG), Oil (WTI/Brent), and Crypto (BTC/ETH/liquid alts).
 Success = documented edge net of costs + a daily top-5 actionable list.
 
-**Current phase:** PHASE 3 — engine + SWEEP + T-303 robustness gauntlet all built & validated.
-Phases 0–2 done. The sweep (research-sweep) landed on main and was dispatched to populate
-HYPOTHESIS_REGISTRY; T-303 (jobs/robustness.py + src/mtc.py + research-robustness workflow) is
-ready to run the moment the registry has rows. Next: confirm the sweep produced results, then
-dispatch research-robustness to promote any survivors into CANDIDATES.md.
+**Current phase:** PHASE 3 COMPLETE — swept the full grid (220 hypotheses) and ran the T-303
+gauntlet end-to-end in CI. **Result: 0 candidates.** 17 base-gate PASSes, but none cleared the
+multiple-testing bar (78 valid tests → Bonferroni p<0.00064; DSR>0.95 vs SR*=0.33). Honest, expected.
+Next: **Phase 4** — combine the strongest single-factor LEADS (below) with filters/regimes, since
+no standalone factor is deployable. Holdout still sealed.
 
 ---
 
@@ -56,17 +56,27 @@ dispatch research-robustness to promote any survivors into CANDIDATES.md.
   ROBUSTNESS.md (D-012). Validated on a synthetic PASS (correctly rejected on every statistical gate).
 - Findings: D-011 (pool per class), D-012 (promotion gate). Engine refuses to bless noise.
 
-## Next
-1. **Confirm the sweep populated HYPOTHESIS_REGISTRY** (research-sweep run / its auto-PR). The sweep
-   depends on the data-refresh having warmed the lake cache first; if the cache was empty it no-ops
-   cleanly ("nothing to sweep") — in that case let research-data-refresh run first, then re-dispatch.
-2. **Dispatch research-robustness** (T-303) on the populated registry → promotes survivors to
-   CANDIDATES.md. Expected early result: 0 survivors (honest). Holdout stays sealed until the very end.
-3. If/when candidates exist → **Phase 4** (combinations/regimes) then **Phase 5** (OOS/walk-forward).
+## Phase-3 LEADS (survived 2× cost + parameter sensitivity; failed only the N=78 MTC)
+Not candidates, but the raw material for Phase 4. Clear theme: **oil mean-reversion**.
+- `rsi_rev(n=7,os=30)` **oil 1h→swing** — val expR **+0.360R**, PF 1.66, 2× cost +0.296R (strongest)
+- `zscore_rev(n=20,z=2.0)` oil 1h→swing — +0.277R, PF 1.49
+- `rsi_rev(n=7,os=30)` oil 1h→intraday — +0.189R, PF 1.54
+- `donch_brk(n=55)` crypto 1h→intraday — +0.163R, PF 1.35
+- `zscore_rev(n=50,z=2.0)` forex_majors 1h→swing — +0.165R, PF 1.26
+- `donch_brk(n=20)` forex_majors 4h→swing — +0.118R, PF 1.21 · `donch_brk(n=20)` metals 1h→intraday — +0.093R
+Full per-candidate report: `research/ROBUSTNESS.md`. All 220 rows: `HYPOTHESIS_REGISTRY.csv`.
+
+## Next — PHASE 4 (combinations / regimes)
+1. **T-401** Take the leads above and add a confirming factor or regime gate (trend/range via ADX or
+   SMA200 slope; vol hi/lo via ATR%; session). Hypothesis: a filter lifts the oil/crypto mean-reversion
+   edge enough to clear MTC. Register each combo in HYPOTHESIS_REGISTRY (phase 4), re-run T-303.
+2. Keep pooling per asset class for sample size (D-011). Costs/no-lookahead/benchmarks unchanged.
+3. Only a Phase-4 survivor of the full gauntlet → CANDIDATES.md → **Phase 5** (walk-forward, then the
+   sealed holdout touched ONCE) → **Phase 6** (4-week forward paper) → **Phase 7** (deploy to scanner).
 
 ## Open questions
 - Exact Twelve Data symbols for WTI/Brent on the free plan (verify on first pull).
 - How deep is Twelve Data free 15m/1h history in practice? (measure, record).
 - Crypto alt universe + any delisting handling we can approximate.
 
-_Last updated: 2026-10-02 (session 2 — sweep merged + T-303 built)._
+_Last updated: 2026-10-02 (session 2 — Phase 3 complete: 220 swept, T-303 run, 0 candidates, leads logged)._
