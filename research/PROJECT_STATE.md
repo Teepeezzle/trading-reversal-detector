@@ -34,7 +34,11 @@ set. CI validation: **EIA ✅ (195 crude-inventory releases landed)**; **FRED �
 `FRED_API_KEY` secret is malformed (HTTP 400 "not a 32-char lowercase string"); re-add a valid key
 (https://fredaccount.stlouisfed.org/apikeys) + re-dispatch. NEXT: fix FRED; N-3 (economic calendar w/
 forecast→surprise, needs a Finnhub/FMP key); N-5 (news gate + regime-tag as registry hypotheses, own
-MTC family — can start now with EIA/oil); N-6 (DAILY_SIGNALS briefing line). News = CONTEXT & FILTER only.
+MTC family); N-6 (DAILY_SIGNALS briefing line). **N-5 BUILT + validated:** `src/newsfactor.py`
+(no-lookahead enrich + 5 gates) + `jobs/news_study.py` (base-vs-gated, D-021 §6; phase-9 registry +
+NEWS_STUDY.md) + `research-news-study` workflow; local oil smoke-test OK (gates bite intraday, not
+daily). **Meaningful run = CI on deep FX/metals 1h/4h after FRED (B-005) fixed → news-refresh →
+news-study.** News = CONTEXT & FILTER only.
 
 **NEW STANDING RULE (D-021, spec: NEWS_LAYER.md):** a fundamental/news layer — CONTEXT & FILTER, never
 a standalone signal; strict UTC timestamping/no-lookahead; forward event calendar (30-min pre-release
@@ -128,4 +132,4 @@ Phase 6 (4-week forward paper) → Phase 7 (deploy). Keep pooling per class (D-0
 - How deep is Twelve Data free 15m/1h history in practice? (measure, record).
 - Crypto alt universe + any delisting handling we can approximate.
 
-_Last updated: 2026-10-02 (session 2 — news layer: EIA landed (195 releases); FRED key malformed (B-005, re-add); N-5 integration next)._
+_Last updated: 2026-10-02 (session 2 — N-5 news-gate study built & validated; EIA live, FRED key pending (B-005))._
