@@ -5,7 +5,12 @@ Open blockers at top. Jobs that hit a blocker log it here and exit cleanly (neve
 ---
 
 ## OPEN
-_(none)_
+- **B-005 · FRED_API_KEY is malformed** — News layer N-1. The CI news refresh got HTTP 400 from FRED
+  on every series: *"The value for variable api_key is not a 32 character alpha-numeric lower-case
+  string."* So the stored `FRED_API_KEY` secret is not a valid FRED key. **Fix:** get the exact 32-char
+  lowercase key from https://fredaccount.stlouisfed.org/apikeys (My Account → API Keys), re-add it as
+  the `FRED_API_KEY` secret (no quotes/spaces/newline), then re-dispatch research-news-refresh. (EIA
+  worked — 195 crude-inventory releases landed; only FRED is blocked.)
 
 ---
 

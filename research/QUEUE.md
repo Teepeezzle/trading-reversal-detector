@@ -64,10 +64,10 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
   param-robust) fails MTC (p=0.035 vs 0.0019, DSR 0.15). Funding signals behave like everything else.
 
 ## News / fundamental layer (STANDING RULE D-021 — spec: NEWS_LAYER.md). CONTEXT & FILTER, never standalone.
-- 🔵 **N-1** FRED fetcher BUILT (`jobs/news_refresh.py`): first-release observations for CPI/PCE/NFP/
-  GDP/UNRATE/FedFunds, stamped at standard ET release time. `FRED_API_KEY` set. Pending CI validation.
-- 🔵 **N-2** EIA fetcher BUILT (same job): weekly crude stocks (WCESTUS1) + w/w change, Wed-10:30-ET stamp.
-  `EIA_API_KEY` set. Pending CI validation.
+- ⛔ **N-1** FRED fetcher BUILT but BLOCKED (B-005): CI got HTTP 400 "api_key not a 32-char lowercase
+  string" — the `FRED_API_KEY` secret is malformed. Re-add a valid key, re-dispatch. Code is correct.
+- ✅ **N-2** EIA fetcher DONE: CI landed **195 weekly crude-inventory releases** (2023→now) with w/w
+  surprise, Wed-10:30-ET UTC stamps → `research/altdata_committed/news/eia.csv.gz`. Validated.
 - ⬜ **N-3** Economic-calendar fetcher (Finnhub/FMP free) → forward high/med/low events + forecast (surprise). Needs that key.
 - ✅ **N-4** `src/news.py` BUILT + validated: canonical schema, `latest_asof` no-lookahead join
   (`first_available_at <= bar_open`), `minutes_to_next` 30-min pre-release gate. + `research-news-refresh` workflow.
