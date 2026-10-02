@@ -1,0 +1,78 @@
+name: Research — Deep Re-Sweep / Phase 7 Step A (off-peak)
+
+# Re-runs the phase-3 + phase-5 single-factor grids on the DEEP HistData FX/metals lake (phase 7,
+# id suffix |deep). Run AFTER research-histdata-refresh has built the deep lake into the cache.
+# Reads the cache only; no secrets. Idempotent + resumable. Judge with research-robustness (phase=7).
+#
+# ONE-TIME SETTING (if create-PR denied): Settings -> Actions -> General -> Workflow permissions ->
+# enable "Allow GitHub Actions to create and approve pull requests".
+on:
+  workflow_dispatch:
+    inputs:
+      aclass:
+        description: "'all' or CSV (forex_majors,forex_crosses,metals)"
+        required: false
+        default: "all"
+      max:
+        description: "max NEW hypotheses this run (resumable; 0=unlimited)"
+        required: false
+        default: "0"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: research-deep-resweep
+  cancel-in-progress: false
+
+jobs:
+  resweep:
+    name: Deep re-sweep (phase 7)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false   # avoid create-pull-request "Duplicate header: Authorization" (HTTP 400)
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install research deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r research/requirements.txt
+
+      - name: Restore deep data lake
+        uses: actions/cache/restore@v5
+        with:
+          key: research-deep-resweep-readonly
+          path: research/data
+          restore-keys: |
+            research-lake-
+
+      - name: Run deep re-sweep
+        run: |
+          python research/jobs/deep_resweep.py \
+            --aclass "${{ github.event.inputs.aclass || 'all' }}" \
+            --max "${{ github.event.inputs.max || '0' }}" \
+            --rc_iters 8
+
+      - name: Open/update results PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          add-paths: research/HYPOTHESIS_REGISTRY.csv
+          branch: research/deep-results
+          base: main
+          commit-message: "research: Phase-7 deep re-sweep results (auto)"
+          title: "research: Phase-7 deep FX/metals re-sweep results (auto-updating)"
+          body: |
+            Auto-generated Phase-7 re-sweep of the phase-3 + phase-5 grids on the DEEP HistData
+            FX/metals lake (id suffix |deep). The honest retest with real statistical power. Judge
+            with research-robustness (phase=7); any PASS still needs the full gauntlet.
+          delete-branch: false
