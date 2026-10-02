@@ -44,12 +44,16 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
   far from the bar. Single-factor family space exhausted; ~880 hypotheses across Phases 3–5, 0 edges.
 - ✅ **T-404 / Phase 6** cross-sectional ranking RUN in CI (D-018/D-019): 320 configs → 25 base-PASS →
   T-303 phase=6 (N=132) → **0 candidates** (best crypto 15m momentum, Sharpe 0.078, p=0.22, DSR 0.002).
-- 🔵 **T-405 (SCOPED → DATA_OPTIONS.md)** Providers+costs scoped. Key finding: the depth limiter was
-  the *TD-free* cap, not free data per se. **Reopen the search for ~$0**: (A) Dukascopy = FREE 15–20y
-  5m/15m FX/metals/oil → re-run the gauntlet with real power; (B) Binance + CoinGlass/CoinAPI free =
-  deep crypto OHLCV + NEW alt-data families (funding/OI/basis); (C) optional Databento PAYG ~$0.50/GB
-  for true metals/oil futures. Kaiko/Amberdata ($$$) and monthly unified APIs = unnecessary. Awaiting
-  user's go on Step A/B (each a portable fetcher like yfinance_client, lake-format, reuses all pipeline).
+- ✅ **T-405 (SCOPED → DATA_OPTIONS.md)** Depth limiter was the *TD-free* cap, not free data. Reopen
+  for ~$0. User chose **Both, A first**. (Dukascopy → HistData: Dukascopy ticks are 1 file/hour ≈ 90k
+  requests, not Actions-friendly; HistData gives monthly M1 ZIPs — far more practical and FREE.)
+- 🔵 **T-406 / Phase 7 Step A — DEEP FX/metals (HistData)** `src/histdata_client.py` (validated live:
+  EUR/USD, XAU/USD; WTI not on HistData → oil stays yfinance) + `jobs/histdata_refresh.py` +
+  `research-histdata-refresh` workflow (restores+saves the lake cache). **Next: dispatch the deep
+  refresh (3y) → verify depth → `deep_resweep` (re-run phase-3 + phase-5 grids on deep FX/metals,
+  tagged phase 7) → research-robustness phase=7.** Does any edge survive with real statistical power?
+- ⬜ **T-407 / Phase 7 Step B — crypto alt-data** Binance deep OHLCV + CoinGlass/CoinAPI funding/OI/
+  basis fetchers → new economic factor families (carry, funding-momentum, perp-basis reversion).
 - ⬜ **T-501** 60/20/20 split + walk-forward; holdout touched ONCE at the end.
 - ⬜ **T-601** 4-week forward paper test; log every signal taken or not.
 - ⬜ **T-701** Scanner + signal spec + daily morning routine.

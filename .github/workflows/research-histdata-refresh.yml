@@ -1,0 +1,70 @@
+name: Research — HistData Deep Refresh / Phase 7 Step A (off-peak)
+
+# Builds a DEEP FX/metals lake (HistData 1-minute -> 15m/1h/4h/1D, years of depth) to break the
+# Twelve-Data-free ~52d cap (D-005). Restores the existing lake cache, overwrites FX/metals in place,
+# and saves it back so the sweeps/gauntlet read deep data. FREE (no key, no secrets). Oil stays on
+# yfinance (not on HistData). Run once, then run deep_resweep + research-robustness (phase 7).
+on:
+  workflow_dispatch:
+    inputs:
+      years:
+        description: "years of history to fetch"
+        required: false
+        default: "3"
+      classes:
+        description: "'all' or CSV e.g. 'forex_majors,metals'"
+        required: false
+        default: "all"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: research-data-refresh      # shares the lake-cache group with the TD refresh
+  cancel-in-progress: false
+
+jobs:
+  deep:
+    name: Build deep FX/metals lake (HistData)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install research deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r research/requirements.txt
+
+      - name: Restore + save data lake (build on the existing one)
+        uses: actions/cache@v5
+        with:
+          path: research/data
+          key: research-lake-${{ github.run_id }}
+          restore-keys: |
+            research-lake-
+
+      - name: Deep HistData refresh
+        run: |
+          python research/jobs/histdata_refresh.py \
+            --years "${{ github.event.inputs.years || '3' }}" \
+            --classes "${{ github.event.inputs.classes || 'all' }}"
+
+      - name: Upload deep-lake artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-deep-lake
+          path: |
+            research/data/forex_majors/**/*.csv.gz
+            research/data/forex_crosses/**/*.csv.gz
+            research/data/metals/**/*.csv.gz
+          if-no-files-found: ignore
+          retention-days: 14

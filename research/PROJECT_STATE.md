@@ -11,11 +11,14 @@ Success = documented edge net of costs + a daily top-5 actionable list.
 T-303 phase=6 (N=132) → **0 candidates** (best crypto 15m momentum, Sharpe 0.078, p=0.22, DSR 0.002).
 **PROGRAM RESULT: ~1,200 hypotheses across Phases 3–6, every structurally-distinct approach, 0
 deployable edges.** No robust short-horizon technical edge exists under the $0/free-data constraints
-with this gauntlet. Holdout NEVER touched. NEXT = **T-405 SCOPED → see DATA_OPTIONS.md.** Key finding: the depth limiter was the Twelve-Data-FREE
-cap, not free data in general. The search can reopen for ~**$0**: (A) Dukascopy FREE 15–20y 5m/15m
-FX/metals/oil → re-run the gauntlet with real statistical power (the thing every near-miss lacked);
-(B) Binance + CoinGlass/CoinAPI free → deep crypto OHLCV + NEW alt-data families (funding/OI/basis);
-(C) optional Databento PAYG (~$ single digits) for true metals/oil futures. Awaiting user go on A/B.
+with this gauntlet. Holdout NEVER touched. **Phase 7 (reopen for ~$0) — user chose Both, A first.** T-405 scoped (DATA_OPTIONS.md).
+**Step A BUILT (T-406):** deep FX/metals from **HistData** (free M1 → 15m/1h/4h/1D, years of depth) —
+`src/histdata_client.py` (validated live) + `jobs/histdata_refresh.py` + `research-histdata-refresh`
+workflow. (Switched Dukascopy→HistData: Dukascopy ticks are 1 file/hour ≈ unusable in Actions;
+HistData = monthly ZIPs. Oil not on HistData → stays yfinance.) NEXT: dispatch the deep refresh (3y)
+→ verify depth → `deep_resweep` (re-run phase-3 + phase-5 grids on deep FX/metals as phase 7) →
+robustness phase=7 — the honest retest of whether edges were real-but-under-sampled. Then **Step B**
+(T-407): Binance deep crypto + funding/OI/basis alt-data families.
 Next: run research-combo-sweep in CI → merge results → research-robustness `phase=4`; then Phase 5.
 
 ---
@@ -102,4 +105,4 @@ Phase 6 (4-week forward paper) → Phase 7 (deploy). Keep pooling per class (D-0
 - How deep is Twelve Data free 15m/1h history in practice? (measure, record).
 - Crypto alt universe + any delisting handling we can approximate.
 
-_Last updated: 2026-10-02 (session 2 — Phase 6 done: cross-sectional 0 candidates; ~1,200 hypotheses, 0 edges; budget decision next)._
+_Last updated: 2026-10-02 (session 2 — Phase 7 Step A built: HistData deep FX/metals fetcher, ready to fetch + re-sweep)._
