@@ -151,15 +151,21 @@ def main() -> int:
         print(f"T-303: cannot read registry {a.registry}: {exc}")
         return 0
 
-    # evaluated hypotheses only: phase 3, a real verdict, a finite validation sample
+    # evaluated phase-3 hypotheses: a real verdict + a finite validation sample
     reg["sample_val"] = pd.to_numeric(reg.get("sample_val"), errors="coerce")
     reg["sharpe_val"] = pd.to_numeric(reg.get("sharpe_val"), errors="coerce")
-    tested = reg[(reg.get("phase").astype(str) == "3")
+    phase3 = reg[(reg.get("phase").astype(str) == "3")
                  & (reg.get("survived").isin(["PASS", "FAIL", "THIN"]))
                  & (reg["sample_val"].fillna(0) > 0)].copy()
+    n_attempts = len(phase3)
+    # A THIN config (n < MIN_TRADES) is NOT a valid statistical test — it never cleared the
+    # pre-declared sample gate, and its tiny-n Sharpe estimate is noise. Counting such rows in N
+    # (Bonferroni) over-corrects, and their Sharpes wildly inflate the DSR deflation benchmark
+    # (that is what produced an absurd SR* earlier). So the trial set = valid tests only (n>=MIN).
+    tested = phase3[phase3["sample_val"] >= MIN_TRADES].copy()
     n_trials = len(tested)
 
-    # deflation benchmark: expected max Sharpe across N trials, from the spread of trial Sharpes
+    # deflation benchmark: expected max Sharpe across N valid trials, from their Sharpe spread
     trial_sharpes = tested["sharpe_val"].dropna()
     var_trials = float(trial_sharpes.var(ddof=1)) if len(trial_sharpes) > 1 else float("nan")
     sr_star = mtc.expected_max_sharpe(var_trials, n_trials)
@@ -178,7 +184,8 @@ def main() -> int:
         "holdout untouched.",
         "",
         "## Selection context",
-        f"- Hypotheses actually tested (N): **{n_trials}**",
+        f"- Valid tests (N, n>=100 — used for Bonferroni & the DSR benchmark): **{n_trials}**  "
+        f"(configs attempted incl. THIN sub-100-trade: {n_attempts})",
         f"- Base-gate PASSes entering the gauntlet: **{len(passes)}**",
         f"- Family-wise alpha: {a.alpha} -> **Bonferroni per-hypothesis p < {bonf_alpha:.3g}**",
         f"- Trial-Sharpe variance: {fmt(var_trials)} -> expected-max-Sharpe benchmark SR* = "
