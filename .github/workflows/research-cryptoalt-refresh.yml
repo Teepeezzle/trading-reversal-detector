@@ -52,6 +52,8 @@ jobs:
             research-lake-
 
       - name: Crypto alt refresh
+        env:
+          COINGLASS_API_KEY: ${{ secrets.COINGLASS_API_KEY }}
         run: |
           python research/jobs/cryptoalt_refresh.py \
             --years "${{ github.event.inputs.years || '2' }}" \

@@ -101,6 +101,48 @@ def funding(symbol: str, start_ms: int, end_ms: int) -> pd.DataFrame:
     return df.drop(columns="ms")[["time", "funding"]]
 
 
+CG_BASE = "https://open-api-v4.coinglass.com/api/futures/funding-rate/history"
+
+
+def coinglass_funding(symbol: str, start_ms: int, end_ms: int, api_key: str,
+                      exchange: str = "Binance", interval: str = "8h") -> pd.DataFrame:
+    """Funding-rate history from CoinGlass (US-reachable data vendor; free tier interval >= 4h).
+    Returns time, funding (decimal, using the candle close). Empty frame on error/no key."""
+    if not api_key:
+        return pd.DataFrame()
+    sym = bybit_symbol(symbol)                      # 'BTC/USD' -> 'BTCUSDT'
+    headers = {**UA, "CG-API-KEY": api_key, "accept": "application/json"}
+    rows = {}
+    end = end_ms
+    pages = 0
+    while end > start_ms and pages < 2000:
+        pages += 1
+        try:
+            r = requests.get(CG_BASE, params={"exchange": exchange, "symbol": sym,
+                                              "interval": interval, "limit": 1000,
+                                              "start_time": start_ms, "end_time": end},
+                             headers=headers, timeout=30)
+            if r.status_code != 200:
+                break
+            data = (r.json() or {}).get("data") or []
+            if not data:
+                break
+            for d in data:
+                rows[int(d["time"])] = float(d["close"])
+            oldest = min(int(d["time"]) for d in data)
+            if oldest - 1 >= end:
+                break
+            end = oldest - 1
+            time.sleep(0.25)
+        except Exception:
+            break
+    if not rows:
+        return pd.DataFrame()
+    df = pd.DataFrame(sorted(rows.items()), columns=["ms", "funding"])
+    df["time"] = pd.to_datetime(df["ms"], unit="ms", utc=True).dt.tz_localize(None)
+    return df.drop(columns="ms")[["time", "funding"]]
+
+
 def now_ms() -> int:
     return int(datetime.now(timezone.utc).timestamp() * 1000)
 

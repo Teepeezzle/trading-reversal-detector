@@ -21,11 +21,17 @@ No FX/metals single-factor edge, confirmed with real power. Oil not on HistData 
 the SL/TP engine), `jobs/cryptoalt_refresh.py` (→ data/crypto_alt/), `jobs/alt_sweep.py` (phase 8),
 robustness phase-8 path, + refresh/sweep workflows. Smoke-tested end-to-end on a 2-symbol lake.
 NEW economic signals (funding/basis), not price-only, so Step A's null doesn't predict them.
-⛔ **BLOCKED (B-004):** the CI fetch returned 0 rows — Bybit (like Binance) geo-blocks US GitHub
-Actions IPs (the local de-risk passed only because this dev box isn't US). The Step-B code is built,
-smoke-tested, and merged; only the data source is blocked. **DECISION NEEDED (see BLOCKERS B-004):**
-(a) CoinGlass free API + a `COINGLASS_API_KEY` secret, (b) fetch the small alt lake locally and commit
-it, or (c) drop Step B. Holdout untouched.
+B-004 geo-block RESOLVED: user chose **CoinGlass** (D-022). Remaining for Step B: rewire
+`cryptoalt_client.py` to CoinGlass funding (`CG-API-KEY`, free tier 4h+) + use the existing TD crypto
+OHLCV for bars (defer basis); **needs a `COINGLASS_API_KEY` repo secret (user action)**, then
+cryptoalt_refresh → alt_sweep → robustness phase=8.
+
+**NEW STANDING RULE (D-021, spec: NEWS_LAYER.md):** a fundamental/news layer — CONTEXT & FILTER, never
+a standalone signal; strict UTC timestamping/no-lookahead; forward event calendar (30-min pre-release
+gate); GATE / REGIME-TAG / programmatic-SENTIMENT only; every news factor a registry hypothesis judged
+by the gauntlet; API-sourced (off-peak); sources FRED/EIA/economic-calendar; DAILY_SIGNALS briefing line.
+Build = tasks N-1..N-6 (needs FRED_API_KEY, EIA_API_KEY, a calendar key). Starts after Step B unblocks.
+Holdout untouched.
 Next: run research-combo-sweep in CI → merge results → research-robustness `phase=4`; then Phase 5.
 
 ---
@@ -112,4 +118,4 @@ Phase 6 (4-week forward paper) → Phase 7 (deploy). Keep pooling per class (D-0
 - How deep is Twelve Data free 15m/1h history in practice? (measure, record).
 - Crypto alt universe + any delisting handling we can approximate.
 
-_Last updated: 2026-10-02 (session 2 — Phase 8 Step B built but BLOCKED: Bybit geo-blocks US Actions; data-source decision needed)._
+_Last updated: 2026-10-02 (session 2 — Step B → CoinGlass (needs key); NEW standing rule: news/fundamental layer, spec in NEWS_LAYER.md)._

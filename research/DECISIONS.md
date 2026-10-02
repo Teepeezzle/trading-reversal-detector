@@ -4,6 +4,28 @@ Append-only. Newest at top. Each entry: date · decision · why · reversible?
 
 ---
 
+### 2026-10-02 · D-021 · STANDING RULE — fundamental/news layer as context & filter (never standalone)
+User-directed standing rule (full spec: research/NEWS_LAYER.md). Add a fundamental/news layer that is
+CONTEXT AND FILTER only — never a standalone entry signal. Mandatory: UTC `published_at` +
+`first_available_at` on every item (no look-ahead; undated item = discard); a forward event calendar
+(no new intraday entry <30min before a high-impact release; no holding a fresh position through one
+without a logged reason); three uses only (GATE / REGIME-TAG / programmatic timestamped SENTIMENT);
+NO discretionary news trading; every news factor logged in HYPOTHESIS_REGISTRY.csv and judged by the
+same gauntlet (own MTC family; "improves expectancy after cost?" vs "just fewer trades?" both valid);
+API-sourced for off-peak (MCP-only = interactive-only, excluded, cf. D-009); prefer structured
+timestamped official feeds (FRED/EIA/economic-calendar), log source+pull-time, exclude undated; and a
+DAILY_SIGNALS briefing line per signal (news tag + invalidating scheduled event). Applies across all
+future phases alongside the technical work. _Reversible: no (standing directive) — mechanics tunable._
+
+### 2026-10-02 · D-022 · Crypto funding via CoinGlass free API (resolves B-004 geo-block)
+Bybit/Binance geo-block US GitHub Actions (B-004), so crypto funding for Phase 8 comes from CoinGlass
+— a US-accessible data VENDOR (not an exchange), free "Hobbyist" tier, historical funding-rate OHLC at
+`open-api-v4.coinglass.com/api/futures/funding-rate/history`, auth header `CG-API-KEY`. Free-tier
+constraint: interval >= 4h (fine — funding is 8-hourly). Price/bars for the backtest come from the
+existing crypto OHLCV lake (Twelve Data, which works in US CI); perp/spot BASIS deferred (needs a
+perp-price endpoint) so Phase 8 ships with the funding families (fund_rev, fund_mom) first. Needs a
+`COINGLASS_API_KEY` repo secret (user action, like TWELVEDATA_API_KEY). _Reversible: yes._
+
 ### 2026-10-02 · D-020 · Phase 7 Step A verdict: DEEP data refutes the "under-powered" hypothesis
 Built a free deep lake (HistData 1-min → 15m/1h/4h/1D, ~21 months, FX majors/crosses + XAU/XAG) and
 re-ran the phase-3 + phase-5 single-factor grids on it (480 configs, phase 7 / id `|deep`). Depth

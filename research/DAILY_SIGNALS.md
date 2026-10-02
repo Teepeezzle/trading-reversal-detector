@@ -21,6 +21,9 @@ For each signal, also record:
 - **Regime context** (trend/range, vol state, risk-on/off).
 - **Why now** (the exact condition that just triggered).
 - **Early-exit condition** (the specific thing that voids the thesis before stop/target).
+- **News context + event risk** (standing rule D-021 / NEWS_LAYER.md §9): the news-context tag for the
+  trade, and any scheduled high-impact event that could invalidate it before its target horizon
+  (e.g. "CPI in 2h — no new entry", "post-FOMC risk-off tag").
 
 Ranking: by **expectancy**, not chart aesthetics. Horizon ∈ {intraday, swing(≤5d)}.
 All levels net-of-cost aware. Intraday signals assume same-session exit; swing ≤5 trading days hard.
