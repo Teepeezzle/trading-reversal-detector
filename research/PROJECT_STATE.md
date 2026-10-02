@@ -7,9 +7,9 @@ INTRADAY (open→same-session close) and SHORT SWING (≤5 trading days) across
 Forex, Metals (XAU/XAG), Oil (WTI/Brent), and Crypto (BTC/ETH/liquid alts).
 Success = documented edge net of costs + a daily top-5 actionable list.
 
-**Current phase:** PHASE 3 — backtest engine BUILT & VALIDATED (pooled single-factor, no-lookahead,
-net-of-cost, buy-hold + random-entry benchmarks, 60/20/20 split, ≥100-trade gate). Phases 0–2 done.
-Next: systematic sweep across rules × params × classes × horizons + multiple-testing correction.
+**Current phase:** PHASE 3 — engine + SWEEP built & validated (jobs/sweep.py idempotent/resumable;
+research-sweep nightly workflow lands registry as a PR). Phases 0–2 done. Next: run the sweep in
+CI to populate HYPOTHESIS_REGISTRY, then T-303 (2×-cost + sensitivity + multiple-testing correction).
 
 ---
 
@@ -45,18 +45,18 @@ Next: systematic sweep across rules × params × classes × horizons + multiple-
 - **Phase 2 done:** indicator catalogue (PHASE2_INDICATORS.md) + portable `research/src/indicators.py`.
 - Bigdata.com assessed → interactive macro-event overlay only, MCP-ONLY/PAYG (D-009). No open blockers.
 
-## Done this session (Phase 3 engine)
-- `research/src/backtest.py` (simulate/stats/split/benchmarks), `costs.py` (per-class net costs),
-  `jobs/single_factor.py` (pooled tester, --symbol ALL). Verified on real lake data.
-- Finding (D-011): pool a rule across the asset class for sample size; no naive factor passed.
+## Done (Phase 3 engine + sweep)
+- Engine: `src/backtest.py`, `costs.py`, `src/factors.py` (shared), `jobs/single_factor.py`.
+- Sweep: `jobs/sweep.py` (idempotent/resumable) + `.github/workflows/research-sweep.yml` (lands
+  results as an auto PR). Validated on real lake: pooled 91–279 trades, 0 PASS (naive = negative).
+- Findings: D-011 (pool per class). Engine refuses to bless noise — honest "no edge yet" result.
 
-## Next — PHASE 3 sweep
-1. `research/jobs/sweep.py` — loop rules × params × asset-classes × horizons × TFs (from QUEUE),
-   append each result row to HYPOTHESIS_REGISTRY.csv. Idempotent / resumable batches.
-2. `research-sweep` workflow (nightly), matrix over asset classes; Actions cache for /data.
-3. On the batch: apply **2× cost** re-run on anything positive, **parameter sensitivity**
-   (±1–2 around any winner), and **multiple-testing correction** (Deflated Sharpe / Bonferroni);
-   report how many hypotheses were tested. Judge PASS only on validation; holdout stays sealed.
+## Next
+1. **Run the sweep in CI** (dispatch research-sweep) to populate HYPOTHESIS_REGISTRY across the grid
+   (~220 hypotheses; resumes nightly). Needs the "Actions can create PRs" repo setting for the PR step.
+2. **T-303** on the populated registry: 2×-cost re-run on anything positive, parameter sensitivity
+   (±1–2 around winners), multiple-testing correction (Deflated Sharpe / Bonferroni), # hypotheses
+   reported. Only then does anything reach CANDIDATES.md. Holdout stays sealed until the very end.
 
 ## Open questions
 - Exact Twelve Data symbols for WTI/Brent on the free plan (verify on first pull).
