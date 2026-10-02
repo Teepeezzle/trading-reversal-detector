@@ -4,6 +4,21 @@ Append-only. Newest at top. Each entry: date · decision · why · reversible?
 
 ---
 
+### 2026-10-02 · D-019 · Phase 6 verdict + PROGRAM conclusion: $0 idea space exhausted, 0 edges
+Full cross-sectional sweep ran in CI on the widened lake: 320 configs → 25 base-gate PASS → T-303
+`--phase 6` (N=132 valid tests, Bonferroni p<3.8e-4, SR*=0.36) → **0 candidates**. Best was crypto
+15m momentum (Sharpe 0.078, p=0.22, DSR 0.002 — fat tails, kurtosis ~12, sink the DSR). **PROGRAM
+RESULT:** across Phases 3–6, **~1,200 hypotheses** spanning every structurally-distinct approach —
+per-instrument mean-reversion, breakout, momentum, trend-pullback, stochastic, MACD; regime-gated
+combinations; and cross-sectional relative-strength — on free data (TD + yfinance, 15m–1D, widened
+17-coin crypto + FX/metals/oil), net of cost and multiple-testing-corrected, produced **0 deployable
+edges.** The honest conclusion: there is no robustly significant short-horizon technical edge
+discoverable under the $0 / free-data constraints with this disciplined gauntlet. The remaining lever
+is **data/budget** (D-003): deeper intraday history, a survivorship-aware universe, more instruments,
+or alternative data — a decision for the user. The framework, the ~1,200-row registry, and this
+null result are the deliverable. Holdout NEVER touched (still available for a genuine future
+candidate). _Reversible: yes (a budget or new data source reopens the search)._
+
 ### 2026-10-02 · D-018 · Phase 6 = cross-sectional relative-strength (new engine, own MTC family)
 Last structurally-new $0 idea (user-directed). New portable engine `src/xsectional.py`: each
 rebalance, rank a class's instruments by trailing momentum (lookback L), hold long top-k (/ short
