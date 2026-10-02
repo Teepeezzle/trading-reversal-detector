@@ -50,6 +50,38 @@ def zscore_rev(df, p):
 RULES = {"rsi_rev": rsi_rev, "donch_brk": donch_brk, "ema_cross": ema_cross, "zscore_rev": zscore_rev}
 
 
+# ---- PHASE 4 gates: df -> bool Series (True = regime allows the entry). No-lookahead: the value
+#      at bar t uses only closes through t, and the trade is still taken at t+1's open. A combined
+#      hypothesis is base_rule & gate. Warmup / NaN comparisons evaluate False (entry suppressed). ----
+def _adx(df, n=14):
+    return ind.adx(df, n)[0]
+
+
+def g_adx_lo20(df):  return _adx(df) < 20          # ranging regime -> favours mean-reversion
+def g_adx_lo25(df):  return _adx(df) < 25
+def g_adx_hi25(df):  return _adx(df) > 25          # trending regime -> favours breakout
+def g_trend_up(df):  return df["close"] > ind.sma(df["close"], 200)   # long with the higher-TF trend
+
+
+def g_vol_lo(df):
+    ap = ind.atr_pct(df, 14)
+    return ap < ap.rolling(100, min_periods=100).median()            # calm regime
+
+
+def g_vol_hi(df):
+    ap = ind.atr_pct(df, 14)
+    return ap > ap.rolling(100, min_periods=100).median()            # volatile regime
+
+
+def g_ny(df):
+    h = pd.to_datetime(df["time"]).dt.hour
+    return (h >= 12) & (h < 21)                                      # NY-session liquidity window (UTC)
+
+
+GATES = {"adx_lo20": g_adx_lo20, "adx_lo25": g_adx_lo25, "adx_hi25": g_adx_hi25,
+         "trend_up": g_trend_up, "vol_lo": g_vol_lo, "vol_hi": g_vol_hi, "ny": g_ny}
+
+
 def get_symbols(aclass: str) -> list[str]:
     syms = list(CFG.get("universe", {}).get(aclass, {}).get("symbols", []))
     syms += [y["symbol"] for y in CFG.get("yfinance", []) if y.get("asset_class") == aclass]
@@ -61,17 +93,23 @@ def load(lake: Path, aclass: str, symbol: str, tf: str) -> pd.DataFrame:
     return pd.read_csv(path, compression="gzip", parse_dates=["time"]).sort_values("time").reset_index(drop=True)
 
 
-def run_one(df, rule_fn, params, horizon, sl, tp, c):
+def run_one(df, rule_fn, params, horizon, sl, tp, c, gate_fn=None):
     entries, direction = rule_fn(df, params)
+    entries = entries.fillna(False)
+    if gate_fn is not None:                       # PHASE 4: require the regime gate at the signal bar
+        g = gate_fn(df).reindex(entries.index).fillna(False).astype(bool)
+        entries = entries & g
     atr = ind.atr(df, 14)
-    trades = bt.simulate(df, entries.fillna(False), direction, atr, sl, tp, horizon, c["rt"], c["swap_daily"])
+    trades = bt.simulate(df, entries, direction, atr, sl, tp, horizon, c["rt"], c["swap_daily"])
     if not trades.empty:
         trades["split"] = bt.tag_split(trades, bt.split_masks(df))
     return trades, direction, atr
 
 
-def evaluate(lake, aclass, rule, params, horizon, tf, sl=1.5, tp=3.0, cost_mult=1.0, rc_iters=20) -> dict:
+def evaluate(lake, aclass, rule, params, horizon, tf, sl=1.5, tp=3.0, cost_mult=1.0, rc_iters=20,
+             gate=None) -> dict:
     rule_fn = RULES[rule]; c = cost_model.get(aclass, cost_mult)
+    gate_fn = GATES[gate] if gate else None
     symbols = get_symbols(aclass)
     all_trades, rnd_e, rnd_w, bh = [], [], [], []
     for sym in symbols:
@@ -79,7 +117,7 @@ def evaluate(lake, aclass, rule, params, horizon, tf, sl=1.5, tp=3.0, cost_mult=
             df = load(lake, aclass, sym, tf)
         except Exception:
             continue
-        trades_i, direction, atr = run_one(df, rule_fn, params, horizon, sl, tp, c)
+        trades_i, direction, atr = run_one(df, rule_fn, params, horizon, sl, tp, c, gate_fn)
         if not trades_i.empty:
             trades_i["symbol"] = sym; all_trades.append(trades_i)
         vn = int((trades_i.split == "val").sum()) if not trades_i.empty else 0

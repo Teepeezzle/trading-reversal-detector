@@ -71,9 +71,10 @@ def pstr(p: dict) -> str:
     return ",".join(f"{k}={p[k]}" for k in sorted(p))
 
 
-def pooled_val(lake, aclass, rule, params, horizon, tf, cost_mult) -> pd.DataFrame:
+def pooled_val(lake, aclass, rule, params, horizon, tf, cost_mult, gate=None) -> pd.DataFrame:
     """Rebuild the pooled VALIDATION trades for one hypothesis (reusing the sweep's own rule/engine)."""
     rule_fn = F.RULES[rule]
+    gate_fn = F.GATES[gate] if gate else None
     c = cost_model.get(aclass, cost_mult)
     frames = []
     for sym in F.get_symbols(aclass):
@@ -81,7 +82,7 @@ def pooled_val(lake, aclass, rule, params, horizon, tf, cost_mult) -> pd.DataFra
             df = F.load(lake, aclass, sym, tf)
         except Exception:
             continue
-        trades_i, _, _ = F.run_one(df, rule_fn, params, horizon, SL, TP, c)
+        trades_i, _, _ = F.run_one(df, rule_fn, params, horizon, SL, TP, c, gate_fn)
         if not trades_i.empty:
             frames.append(trades_i)
     if not frames:
@@ -137,6 +138,7 @@ def main() -> int:
     ap.add_argument("--dsr", type=float, default=0.95, help="min Deflated Sharpe Ratio to pass")
     ap.add_argument("--sens_min_frac", type=float, default=0.6,
                     help="min fraction of parameter neighbors that must stay positive")
+    ap.add_argument("--phase", default="3", help="trial family to judge: '3', '4', or 'all'")
     ap.add_argument("--promote", action="store_true", help="write survivors into CANDIDATES.md")
     a = ap.parse_args()
 
@@ -151,18 +153,21 @@ def main() -> int:
         print(f"T-303: cannot read registry {a.registry}: {exc}")
         return 0
 
-    # evaluated phase-3 hypotheses: a real verdict + a finite validation sample
+    # evaluated hypotheses in the selected trial family: a real verdict + a finite validation sample
     reg["sample_val"] = pd.to_numeric(reg.get("sample_val"), errors="coerce")
     reg["sharpe_val"] = pd.to_numeric(reg.get("sharpe_val"), errors="coerce")
-    phase3 = reg[(reg.get("phase").astype(str) == "3")
-                 & (reg.get("survived").isin(["PASS", "FAIL", "THIN"]))
-                 & (reg["sample_val"].fillna(0) > 0)].copy()
-    n_attempts = len(phase3)
+    phase_sel = [p.strip() for p in str(a.phase).split(",")]
+    in_family = reg.get("phase").astype(str).isin(phase_sel) if a.phase != "all" \
+        else reg.get("phase").astype(str).isin(["3", "4"])
+    fam = reg[in_family
+              & (reg.get("survived").isin(["PASS", "FAIL", "THIN"]))
+              & (reg["sample_val"].fillna(0) > 0)].copy()
+    n_attempts = len(fam)
     # A THIN config (n < MIN_TRADES) is NOT a valid statistical test — it never cleared the
     # pre-declared sample gate, and its tiny-n Sharpe estimate is noise. Counting such rows in N
     # (Bonferroni) over-corrects, and their Sharpes wildly inflate the DSR deflation benchmark
     # (that is what produced an absurd SR* earlier). So the trial set = valid tests only (n>=MIN).
-    tested = phase3[phase3["sample_val"] >= MIN_TRADES].copy()
+    tested = fam[fam["sample_val"] >= MIN_TRADES].copy()
     n_trials = len(tested)
 
     # deflation benchmark: expected max Sharpe across N valid trials, from their Sharpe spread
@@ -206,31 +211,33 @@ def main() -> int:
     else:
         lines += ["## Per-candidate gauntlet", ""]
         for _, row in passes.iterrows():
-            rule = str(row["entry_rule"]).strip()
+            rule, _, gate = str(row["entry_rule"]).strip().partition("+")  # "<rule>" or "<rule>+<gate>"
+            gate = gate or None
             aclass = str(row["asset_class"]).strip()
             tf = str(row["timeframe"]).strip()
             hz = str(row["horizon"]).strip()
             params = parse_params(row["params"])
             idv = str(row["id"])
-            lines += [f"### `{idv}`", f"- Rule: `{rule}({pstr(params)})` · {aclass} · {tf} · {hz}"]
+            label = f"{rule}({pstr(params)})" + (f" & {gate}" if gate else "")
+            lines += [f"### `{idv}`", f"- Rule: `{label}` · {aclass} · {tf} · {hz}"]
 
-            if rule not in F.RULES:
-                lines += [f"- SKIPPED: unknown rule `{rule}` (not in factors.RULES).", ""]
+            if rule not in F.RULES or (gate and gate not in F.GATES):
+                lines += [f"- SKIPPED: unknown rule/gate `{row['entry_rule']}`.", ""]
                 continue
 
             # (0) baseline 1x re-derivation (sanity + raw R for DSR)
-            v1 = pooled_val(a.lake, aclass, rule, params, hz, tf, 1.0)
+            v1 = pooled_val(a.lake, aclass, rule, params, hz, tf, 1.0, gate)
             s1 = bt.stats(v1)
             # (1) 2x cost
-            v2 = pooled_val(a.lake, aclass, rule, params, hz, tf, 2.0)
+            v2 = pooled_val(a.lake, aclass, rule, params, hz, tf, 2.0, gate)
             s2 = bt.stats(v2)
             cost2_ok = bool(s2["n"] >= MIN_TRADES and np.isfinite(s2["expR"])
                             and s2["expR"] > 0 and np.isfinite(s2["pf"]) and s2["pf"] > 1)
-            # (2) parameter sensitivity
+            # (2) parameter sensitivity (base params perturbed; gate held fixed)
             nbrs = neighbors(params)
             nbr_exp = []
             for q in nbrs:
-                sv = bt.stats(pooled_val(a.lake, aclass, rule, q, hz, tf, 1.0))
+                sv = bt.stats(pooled_val(a.lake, aclass, rule, q, hz, tf, 1.0, gate))
                 if sv["n"] >= MIN_TRADES and np.isfinite(sv["expR"]):
                     nbr_exp.append(sv["expR"])
             frac_pos = (float(np.mean([e > 0 for e in nbr_exp])) if nbr_exp else 0.0)
@@ -267,10 +274,10 @@ def main() -> int:
                 "",
             ]
             if survived:
-                survivors.append(dict(id=idv, rule=rule, params=params, aclass=aclass, tf=tf, hz=hz,
-                                      s1=s1, s2=s2, pval=pval, dsr=dsr, bh=row.get("benchmark_bh_R"),
-                                      rnd=row.get("benchmark_random_R"), frac_pos=frac_pos,
-                                      med_nbr=med_nbr))
+                survivors.append(dict(id=idv, rule=rule, gate=gate, params=params, aclass=aclass,
+                                      tf=tf, hz=hz, s1=s1, s2=s2, pval=pval, dsr=dsr,
+                                      bh=row.get("benchmark_bh_R"), rnd=row.get("benchmark_random_R"),
+                                      frac_pos=frac_pos, med_nbr=med_nbr))
 
         lines += ["## Summary", "",
                   f"- {len(passes)} base-gate PASS -> **{len(survivors)} candidate(s)** after the full gauntlet."]
@@ -310,11 +317,14 @@ def _promote(survivors: list[dict]):
         blocks = []
         for i, s in enumerate(survivors, 1):
             s1, s2 = s["s1"], s["s2"]
+            gate = s.get("gate")
+            name = f"{s['rule']}({pstr(s['params'])})" + (f" & {gate}" if gate else "")
             blocks.append("\n".join([
-                f"### C-{i:03d} · {s['rule']}({pstr(s['params'])}) — {s['aclass']} {s['tf']} {s['hz']}",
+                f"### C-{i:03d} · {name} — {s['aclass']} {s['tf']} {s['hz']}",
                 f"- Source hypothesis: `{s['id']}`",
                 f"- Universe / timeframe / horizon: {s['aclass']} (pooled) / {s['tf']} / {s['hz']}",
-                f"- Rule: {s['rule']} entry; stop {SL}xATR; target {TP}xATR; "
+                f"- Rule: {s['rule']} entry" + (f", gated on `{gate}`" if gate else "")
+                + f"; stop {SL}xATR; target {TP}xATR; "
                 f"{'session close' if s['hz']=='intraday' else '5-day hard'} invalidation",
                 f"- Net stats (val): trades {s1['n']}, winrate {fmt(s1['win'],1)}%, "
                 f"expectancy {fmt(s1['expR'])}R, PF {fmt(s1['pf'],2)}, maxDD {fmt(s1['maxdd_R'],1)}R, "
@@ -324,8 +334,8 @@ def _promote(survivors: list[dict]):
                 f"sensitivity {s['frac_pos']*100:.0f}% neighbors positive (median {fmt(s['med_nbr'])}R) · "
                 f"Bonferroni p={fmt(s['pval'],5)} · DSR={fmt(s['dsr'],3)}",
                 "- Economic rationale (why it should work): _fill in before forward-paper_",
-                "- Known weaknesses: single-factor; selection survived N-trial correction but "
-                "not yet confirmed on the sealed holdout or in forward paper",
+                "- Known weaknesses: selection survived N-trial correction but NOT yet confirmed on the "
+                "sealed holdout or in forward paper",
                 "- Status: validation (awaiting walk-forward / holdout)",
                 "",
             ]))
