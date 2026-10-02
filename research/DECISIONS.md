@@ -4,6 +4,19 @@ Append-only. Newest at top. Each entry: date · decision · why · reversible?
 
 ---
 
+### 2026-10-02 · D-015 · Widened crypto universe DESTROYS the 15m breakout edge — it was small-sample luck
+Move 3 executed: crypto universe 9→17 (MATIC 404 on TD free — POL rebrand; logged, skipped), fetched
+in CI, re-ran `research-power-boost` on the bigger pool. Result is decisive and NEGATIVE: the
+near-miss collapsed. `donch_brk(20)` & `vol_hi` 15m — Sharpe **0.281→0.160**, 2× cost **+0.242→+0.050R**,
+**DSR 0.895→0.433**; even the 1h baseline Sharpe halved (0.18→0.09). Adding 8 coins is effectively a
+cross-sectional out-of-sample test, and the edge regressed hard toward zero. **Conclusion: the
+regime-gated crypto breakout is NOT a robust edge — the 9-coin result was selection/small-sample
+inflation.** The discipline worked exactly as designed: widening the sample exposed a mirage before
+any deployment. No candidate. Across Phases 3–4.5 (≈340 hypotheses + the confirmation) **0 deployable
+edges**. This retires the breakout-lead line; genuinely new directions (different factor families, or
+a data/budget reconsideration for deeper intraday history) are needed, not more grinding of this lead.
+_Reversible: yes._
+
 ### 2026-10-02 · D-014 · Power boost: cross-class pooling DILUTES; crypto 15m nearly clears the bar
 Phase-4.5 pre-registered confirmation of the regime-gated breakout (`donch_brk(20)` & gate, swing)
 under trade-adding data configs (`jobs/power_boost.py`, local lake). Findings:
