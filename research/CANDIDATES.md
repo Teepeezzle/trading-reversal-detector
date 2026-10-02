@@ -5,7 +5,7 @@ the **validation** set, an economic rationale) appear here. Each must list known
 A candidate is removed the moment it fails holdout, dies at 2× costs, or depends on one
 instrument / date range / parameter value.
 
-_No candidates yet — research begins at Phase 1 (data). This is expected on day 1._
+_No candidates yet — nothing has survived the full robustness gauntlet (2x cost + parameter sensitivity + Bonferroni + Deflated Sharpe)._
 
 ---
 
