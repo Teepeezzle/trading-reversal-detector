@@ -17,6 +17,19 @@ timestamped official feeds (FRED/EIA/economic-calendar), log source+pull-time, e
 DAILY_SIGNALS briefing line per signal (news tag + invalidating scheduled event). Applies across all
 future phases alongside the technical work. _Reversible: no (standing directive) — mechanics tunable._
 
+### 2026-10-02 · D-027 · newsdata.io = live headline feed only (not economic data); forward-collector role
+Tested live (NEWSDATAIO_API_KEY, read-only probe). newsdata.io is a HEADLINE/ARTICLE aggregator, not
+an economic-data source: it returns title/description/content/pubDate/country/category/keywords, with
+NO macro-release values (FRED), inventory values (EIA), or consensus forecasts (calendar). So it does
+NOT replace or fill the three economic sources, and does NOT enable the historical consensus-surprise
+study (D-026 stands). Free-tier limits confirmed live: `/latest` only (~48h, no archive — archive is
+~$199/mo), and **sentiment is paid** (field returns "ONLY AVAILABLE IN PROFESSIONAL AND CORPORATE
+PLANS"). It IS timestamped (pubDate) and keyword-filterable. **Fit:** a FORWARD live headline/event
+feed for the daily briefing (N-6) and Phase-6 forward paper; if collected on a schedule it builds our
+own timestamped archive over time, enabling a self-computed programmatic keyword/event-flow factor
+later (§4, our own measure — never their paid sentiment, never discretionary reading). Cannot backtest
+historically at $0. Probe kept (`jobs/newsdata_probe.py` + workflow). _Reversible: yes._
+
 ### 2026-10-02 · D-026 · Consensus-surprise calendar is paywalled at $0 everywhere → use the actual-vs-prior proxy
 N-3 aimed for a TRUE consensus surprise (actual − forecast). All three free candidates gate it:
 CoinGlass funding = 401 "Upgrade plan"; Finnhub `/calendar/economic` = premium ("You don't have

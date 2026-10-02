@@ -45,6 +45,9 @@ everywhere** — CoinGlass 401, Finnhub premium, FMP 402 Restricted; `fetch_fmp`
 paid plan). Free reality = actual-vs-PRIOR surprise proxy (already studied, N-5). FMP/FINNHUB keys
 unused (may delete). News = CONTEXT & FILTER, confirmed as a regime tag, not a standalone edge.
 Holdout untouched. True consensus surprise = a future budget decision (D-003).
+**newsdata.io (tested, D-027):** headline aggregator, not economic data — free = ~48h live, no archive,
+sentiment paid. Does NOT fill FRED/EIA/consensus or enable historical backtest. Fit = optional FORWARD
+headline collector (N-7) for the briefing + Phase-6 paper (self-built archive over time). Key works.
 
 **NEW STANDING RULE (D-021, spec: NEWS_LAYER.md):** a fundamental/news layer — CONTEXT & FILTER, never
 a standalone signal; strict UTC timestamping/no-lookahead; forward event calendar (30-min pre-release
@@ -138,4 +141,4 @@ Phase 6 (4-week forward paper) → Phase 7 (deploy). Keep pooling per class (D-0
 - How deep is Twelve Data free 15m/1h history in practice? (measure, record).
 - Crypto alt universe + any delisting handling we can approximate.
 
-_Last updated: 2026-10-02 (session 2 — news layer complete at $0; consensus calendar paywalled everywhere (D-026); proxy stands)._
+_Last updated: 2026-10-02 (session 2 — newsdata.io tested: headlines-only/forward (D-027); news layer complete at $0)._

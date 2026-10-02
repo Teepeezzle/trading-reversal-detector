@@ -81,6 +81,10 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
 - ✅ **N-6** DONE: `jobs/daily_brief.py` — forward event-risk calendar (projected from release cadence)
   + no-trades briefing + per-signal `brief_for_signal()` (news tag + next event risk) + the 30-min
   pre-release rule (§3/§9). Wired as a step in research-news-refresh. Validated on the live news table.
+- ⬜ **N-7 (optional)** newsdata.io FORWARD collector (D-027): headlines-only, free=~48h/no archive/no
+  sentiment (tested live) — can't backtest, but a scheduled collector would store each run's latest
+  finance/crypto headlines (timestamped) to self-build an archive, feeding the briefing + a future
+  self-computed keyword event-flow factor. Live/forward use only. `jobs/newsdata_probe.py` confirms the key.
 - ⬜ **T-501** 60/20/20 split + walk-forward; holdout touched ONCE at the end.
 - ⬜ **T-601** 4-week forward paper test; log every signal taken or not.
 - ⬜ **T-701** Scanner + signal spec + daily morning routine.
