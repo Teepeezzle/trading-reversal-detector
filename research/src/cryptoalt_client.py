@@ -123,9 +123,15 @@ def coinglass_funding(symbol: str, start_ms: int, end_ms: int, api_key: str,
                                               "start_time": start_ms, "end_time": end},
                              headers=headers, timeout=30)
             if r.status_code != 200:
+                if pages == 1:
+                    print(f"    CG {sym}: HTTP {r.status_code} body={r.text[:220]!r}", flush=True)
                 break
-            data = (r.json() or {}).get("data") or []
+            j = r.json() or {}
+            data = j.get("data") or []
             if not data:
+                if pages == 1:
+                    print(f"    CG {sym}: code={j.get('code')!r} msg={j.get('msg')!r} "
+                          f"keys={list(j.keys())}", flush=True)
                 break
             for d in data:
                 rows[int(d["time"])] = float(d["close"])
