@@ -37,6 +37,7 @@ import backtest as bt      # noqa: E402
 import costs as cost_model  # noqa: E402
 import mtc                  # noqa: E402
 import xsectional as X      # noqa: E402  (phase-6 cross-sectional re-evaluation)
+import cryptoalt as A       # noqa: E402  (phase-8 crypto alt-data re-evaluation)
 
 REG = ROOT / "HYPOTHESIS_REGISTRY.csv"
 CAND = ROOT / "CANDIDATES.md"
@@ -238,18 +239,22 @@ def main() -> int:
             params = parse_params(row["params"])
             idv = str(row["id"])
             is_xs = (rule == "xs_mom")                     # phase-6 cross-sectional
+            is_alt = (rule in A.RULES)                      # phase-8 crypto alt-data (funding/basis)
             label = (f"xs_mom({pstr(params)})" if is_xs
-                     else f"{rule}({pstr(params)})" + (f" & {gate}" if gate else ""))
+                     else f"{rule}({pstr(params)})" + (f" & {gate}" if gate and not is_alt else ""))
             lines += [f"### `{idv}`", f"- Rule: `{label}` · {aclass} · {tf} · {hz}"]
 
-            if not is_xs and (rule not in F.RULES or (gate and gate not in F.GATES)):
+            if not is_xs and not is_alt and (rule not in F.RULES or (gate and gate not in F.GATES)):
                 lines += [f"- SKIPPED: unknown rule/gate `{row['entry_rule']}`.", ""]
                 continue
 
-            # re-evaluate the VALIDATION trades — cross-sectional engine for xs rows, else the sweep's
+            # re-evaluate the VALIDATION trades — the right engine per phase
             def val_at(cost_mult, p=params):
-                return xs_val(a.lake, aclass, tf, p, cost_mult) if is_xs \
-                    else pooled_val(a.lake, aclass, rule, p, hz, tf, cost_mult, gate)
+                if is_xs:
+                    return xs_val(a.lake, aclass, tf, p, cost_mult)
+                if is_alt:
+                    return A.pooled_val_alt(a.lake, rule, p, hz, tf, cost_mult)
+                return pooled_val(a.lake, aclass, rule, p, hz, tf, cost_mult, gate)
 
             # (0) baseline 1x re-derivation (sanity + raw R for DSR)
             v1 = val_at(1.0); s1 = bt.stats(v1)

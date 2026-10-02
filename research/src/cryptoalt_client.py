@@ -50,7 +50,9 @@ def klines(symbol: str, tf: str, start_ms: int, end_ms: int, category: str = "li
     sym = bybit_symbol(symbol); iv = IV[tf]; step = IV_MS[tf]
     rows = {}
     end = end_ms
-    while end > start_ms:
+    pages = 0
+    while end > start_ms and pages < 2000:
+        pages += 1
         res = _get("/v5/market/kline", {"category": category, "symbol": sym, "interval": iv,
                                         "start": start_ms, "end": end, "limit": 1000})
         lst = (res or {}).get("list") or []
@@ -59,10 +61,11 @@ def klines(symbol: str, tf: str, start_ms: int, end_ms: int, category: str = "li
         for k in lst:                              # [start, o, h, l, c, vol, turnover]
             rows[int(k[0])] = (float(k[1]), float(k[2]), float(k[3]), float(k[4]), float(k[5]))
         oldest = min(int(k[0]) for k in lst)
-        if oldest >= end:                          # no progress
+        new_end = oldest - step
+        if new_end >= end:                         # no downward progress -> stop (reached listing start)
             break
-        end = oldest - step
-        time.sleep(0.25)
+        end = new_end
+        time.sleep(0.2)
     if not rows:
         return pd.DataFrame()
     df = pd.DataFrame([(t, *v) for t, v in sorted(rows.items())],
@@ -76,7 +79,9 @@ def funding(symbol: str, start_ms: int, end_ms: int) -> pd.DataFrame:
     sym = bybit_symbol(symbol)
     rows = {}
     end = end_ms
-    while end > start_ms:
+    pages = 0
+    while end > start_ms and pages < 2000:
+        pages += 1
         res = _get("/v5/market/funding/history", {"category": "linear", "symbol": sym,
                                                   "startTime": start_ms, "endTime": end, "limit": 200})
         lst = (res or {}).get("list") or []
@@ -85,10 +90,10 @@ def funding(symbol: str, start_ms: int, end_ms: int) -> pd.DataFrame:
         for k in lst:
             rows[int(k["fundingRateTimestamp"])] = float(k["fundingRate"])
         oldest = min(int(k["fundingRateTimestamp"]) for k in lst)
-        if oldest >= end:
+        if oldest - 1 >= end:
             break
         end = oldest - 1
-        time.sleep(0.25)
+        time.sleep(0.2)
     if not rows:
         return pd.DataFrame()
     df = pd.DataFrame(sorted(rows.items()), columns=["ms", "funding"])
