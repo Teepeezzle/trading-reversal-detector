@@ -27,8 +27,12 @@ NEW economic signals (funding/basis), not price-only, so Step A's null doesn't p
 fails MTC (p=0.035 vs 0.0019, DSR 0.15). (Funding via committed Bybit data, D-023; CoinGlass free tier
 was paid-gated; COINGLASS_API_KEY now unused — user may delete.) basis_rev deferred (NaN).
 **PROGRAM TALLY (Phases 3–8): ~1,740 hypotheses, 0 deployable edges.**
-**NEXT = NEWS LAYER (standing rule D-021, tasks N-1..N-6).** FRED_API_KEY + EIA_API_KEY are set; build
-N-1 (FRED macro) + N-4 (news schema/no-lookahead join) first, then N-2 (EIA), N-3 (calendar), N-5/6.
+**NEWS LAYER (D-021) STARTED.** Built + validated: `src/news.py` (N-4 — canonical schema,
+`latest_asof` no-lookahead join, `minutes_to_next` 30-min pre-release gate) + `jobs/news_refresh.py`
+(N-1 FRED macro first-release; N-2 EIA weekly crude) + `research-news-refresh` workflow. FRED/EIA keys
+set. NEXT: dispatch research-news-refresh to validate keys + land the news table; then N-3 (economic
+calendar w/ forecast→surprise), N-5 (news gate + regime-tag as registry hypotheses, own MTC family),
+N-6 (DAILY_SIGNALS briefing line). News is CONTEXT & FILTER only. Holdout untouched.
 
 **NEW STANDING RULE (D-021, spec: NEWS_LAYER.md):** a fundamental/news layer — CONTEXT & FILTER, never
 a standalone signal; strict UTC timestamping/no-lookahead; forward event calendar (30-min pre-release
@@ -122,4 +126,4 @@ Phase 6 (4-week forward paper) → Phase 7 (deploy). Keep pooling per class (D-0
 - How deep is Twelve Data free 15m/1h history in practice? (measure, record).
 - Crypto alt universe + any delisting handling we can approximate.
 
-_Last updated: 2026-10-02 (session 2 — Step B done: funding 0 candidates (D-024); ~1,740 hypotheses, 0 edges; news layer next)._
+_Last updated: 2026-10-02 (session 2 — news layer started: schema + FRED/EIA fetchers built & validated; CI validation next)._
