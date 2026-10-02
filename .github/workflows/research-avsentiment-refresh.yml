@@ -1,0 +1,71 @@
+name: Research — AV Sentiment Harvest / N-8 (off-peak)
+
+# Resumable Alpha Vantage NEWS_SENTIMENT harvest -> daily per-class sentiment series committed at
+# research/altdata_committed/news/av_sentiment.csv.gz. Free tier 25/day, so each run does a bounded
+# batch of (class, month) windows; the daily cron backfills over a few days then keeps it current.
+# Needs the ALPHAVANTAGE_API_KEY secret. Lands the archive as a PR.
+on:
+  schedule:
+    - cron: "45 5 * * *"      # 05:45 UTC daily
+  workflow_dispatch:
+    inputs:
+      start:
+        description: "backfill start (YYYY-MM-DD)"
+        required: false
+        default: "2023-01-01"
+      max:
+        description: "max API windows this run (free tier ~25/day)"
+        required: false
+        default: "20"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: research-avsentiment
+  cancel-in-progress: false
+
+jobs:
+  harvest:
+    name: Harvest AV sentiment (resumable)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false   # avoid create-pull-request "Duplicate header: Authorization" (HTTP 400)
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install research deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r research/requirements.txt
+
+      - name: Harvest
+        env:
+          ALPHAVANTAGE_API_KEY: ${{ secrets.ALPHAVANTAGE_API_KEY }}
+        run: |
+          python research/jobs/avsentiment_refresh.py \
+            --start "${{ github.event.inputs.start || '2023-01-01' }}" \
+            --max "${{ github.event.inputs.max || '20' }}"
+
+      - name: Open/update sentiment PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          add-paths: research/altdata_committed/news/av_sentiment.csv.gz
+          branch: research/av-sentiment
+          base: main
+          commit-message: "research: AV sentiment archive update (auto)"
+          title: "research: AV daily sentiment archive (auto-updating, N-8)"
+          body: |
+            Auto-updating daily per-class sentiment series from Alpha Vantage NEWS_SENTIMENT (N-8).
+            Resumable backfill (free 25/day) + stays current. Feeds the N-8 sentiment factor (judged by
+            the gauntlet) + the daily briefing. Merge to accumulate.
+          delete-branch: false
