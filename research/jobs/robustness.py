@@ -45,7 +45,8 @@ SL, TP = 1.5, 3.0
 MIN_TRADES = F.MIN_TRADES
 
 # per-param perturbation steps for the sensitivity sweep (+/- each step, one param at a time)
-STEP = {"n": [1, 2], "f": [1, 2], "s": [2, 5], "len": [1, 2], "os": [5, 10], "z": [0.25, 0.5]}
+STEP = {"n": [1, 2], "f": [1, 2], "s": [2, 5], "len": [1, 2], "os": [5, 10], "z": [0.25, 0.5],
+        "kstd": [0.25, 0.5], "klen": [2, 4], "d": [1, 2], "fast": [2, 4], "slow": [4, 8]}
 
 
 # ----------------------------- helpers -----------------------------
@@ -242,7 +243,9 @@ def main() -> int:
                     nbr_exp.append(sv["expR"])
             frac_pos = (float(np.mean([e > 0 for e in nbr_exp])) if nbr_exp else 0.0)
             med_nbr = (float(np.median(nbr_exp)) if nbr_exp else float("nan"))
-            sens_ok = bool(nbr_exp and frac_pos >= a.sens_min_frac and med_nbr > 0)
+            # no perturbable params (e.g. all thresholds fixed) -> sensitivity is N/A, don't penalise
+            sens_na = (len(nbrs) == 0)
+            sens_ok = sens_na or bool(nbr_exp and frac_pos >= a.sens_min_frac and med_nbr > 0)
             # (3) multiple-testing correction on the 1x validation result
             pval = mtc.p_value_one_sided(s1["sharpe"], s1["n"])
             bonf_ok = bool(np.isfinite(pval) and pval < bonf_alpha)
@@ -266,7 +269,7 @@ def main() -> int:
                 f"-> {'OK' if cost2_ok else 'FAIL'}",
                 f"- Sensitivity: {len(nbr_exp)}/{len(nbrs)} neighbors scored, "
                 f"{frac_pos*100:.0f}% positive, median expR={fmt(med_nbr)} "
-                f"-> {'OK' if sens_ok else 'FAIL'}",
+                f"-> {'N/A' if sens_na else ('OK' if sens_ok else 'FAIL')}",
                 f"- Bonferroni: p={fmt(pval,5)} vs {bonf_alpha:.3g} -> {'OK' if bonf_ok else 'FAIL'}",
                 f"- Deflated Sharpe: DSR={fmt(dsr,3)} (skew={fmt(skew,2)}, kurt={fmt(kurt_pearson,2)}) "
                 f"-> {'OK' if dsr_ok else 'FAIL'}",

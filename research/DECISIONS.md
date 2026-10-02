@@ -4,6 +4,20 @@ Append-only. Newest at top. Each entry: date · decision · why · reversible?
 
 ---
 
+### 2026-10-02 · D-016 · Phase 5 = new factor families across 15m/1h/2h/3h/4h/1D (user-directed)
+Breakout/mean-reversion exhausted → open a fresh single-factor search over families NOT yet tested:
+momentum ignition (`roc_mom`), volatility breakout (`bb_breakout`, Bollinger — distinct from
+Donchian), trend-pullback (`ema_pullback`), stochastic reversal (`stoch_rev`), MACD momentum
+(`macd_mom`). Added to `factors.RULES`; new sweep `jobs/family_sweep.py` + `research-family-sweep`
+workflow; tagged **phase 5** (its own MTC family, judged by `robustness.py --phase 5`). Timeframes =
+15m/1h/2h/3h/4h/1D at the user's request — **2h and 3h are RESAMPLED from 1h** in `factors.load`
+(bar-open label='left', no-lookahead); this re-includes 15m despite D-005 (user override; the ~52d
+15m depth caveat still stands). Param-name collision fixed (`bb_breakout.kstd`, `stoch_rev.klen`) so
+the sensitivity sweep perturbs the right param; STEP map extended. CAVEAT carried: 2h/3h are highly
+correlated with 1h and six TFs multiply the trial count — both HARDEN the multiple-testing bar, so a
+survivor must be strong AND hold across a broad cross-section (the test that killed the last lead).
+_Reversible: yes._
+
 ### 2026-10-02 · D-015 · Widened crypto universe DESTROYS the 15m breakout edge — it was small-sample luck
 Move 3 executed: crypto universe 9→17 (MATIC 404 on TD free — POL rebrand; logged, skipped), fetched
 in CI, re-ran `research-power-boost` on the bigger pool. Result is decisive and NEGATIVE: the

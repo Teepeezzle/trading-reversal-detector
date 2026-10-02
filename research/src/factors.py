@@ -47,7 +47,48 @@ def zscore_rev(df, p):
     return (z.shift(1) < -zt) & (z >= -zt), "long"
 
 
-RULES = {"rsi_rev": rsi_rev, "donch_brk": donch_brk, "ema_cross": ema_cross, "zscore_rev": zscore_rev}
+# ---- PHASE 5 new factor families (genuinely different from the mean-reversion/breakout already
+#      tested). All no-lookahead: a signal on bar t is computed from closes through t, acted at t+1. ----
+def roc_mom(df, p):
+    """Momentum ignition: rate-of-change crosses up through a threshold."""
+    n = int(p.get("n", 10)); thr = float(p.get("thr", 0.0))
+    r = ind.roc(df["close"], n)
+    return (r.shift(1) <= thr) & (r > thr), "long"
+
+
+def bb_breakout(df, p):
+    """Volatility breakout: close crosses above the upper Bollinger band (distinct from Donchian)."""
+    n = int(p.get("n", 20)); kstd = float(p.get("kstd", 2.0))
+    _, up, _ = ind.bbands(df["close"], n, kstd)
+    return (df["close"].shift(1) <= up.shift(1)) & (df["close"] > up), "long"
+
+
+def ema_pullback(df, p):
+    """Trend continuation: in an EMA-fast>EMA-slow uptrend, buy a pullback that closes back above EMA-fast."""
+    f = int(p.get("f", 10)); s = int(p.get("s", 50))
+    ef, es = ind.ema(df["close"], f), ind.ema(df["close"], s)
+    uptrend = ef > es
+    cross_back = (df["close"].shift(1) < ef.shift(1)) & (df["close"] > ef)
+    return uptrend & cross_back, "long"
+
+
+def stoch_rev(df, p):
+    """Stochastic oversold reversal: %K crosses up through the oversold line."""
+    klen = int(p.get("klen", 14)); d = int(p.get("d", 3)); os = float(p.get("os", 20))
+    kk, _ = ind.stoch(df, klen, d)
+    return (kk.shift(1) < os) & (kk >= os), "long"
+
+
+def macd_mom(df, p):
+    """Momentum turn: MACD histogram crosses up through zero."""
+    fast = int(p.get("fast", 12)); slow = int(p.get("slow", 26)); sig = int(p.get("signal", 9))
+    _, _, hist = ind.macd(df["close"], fast, slow, sig)
+    return (hist.shift(1) <= 0) & (hist > 0), "long"
+
+
+RULES = {"rsi_rev": rsi_rev, "donch_brk": donch_brk, "ema_cross": ema_cross, "zscore_rev": zscore_rev,
+         "roc_mom": roc_mom, "bb_breakout": bb_breakout, "ema_pullback": ema_pullback,
+         "stoch_rev": stoch_rev, "macd_mom": macd_mom}
 
 
 # ---- PHASE 4 gates: df -> bool Series (True = regime allows the entry). No-lookahead: the value
@@ -88,9 +129,24 @@ def get_symbols(aclass: str) -> list[str]:
     return syms
 
 
-def load(lake: Path, aclass: str, symbol: str, tf: str) -> pd.DataFrame:
-    path = Path(lake) / aclass / f"{symbol.replace('/', '')}_{tf}.csv.gz"
+# TFs served by resampling 1h (the lake stores only 15min/1h/4h/1day). Bar-open convention: a 2h/3h
+# bar is labelled at its OPEN (label='left'), so no future information leaks into bar t.
+_RESAMPLE = {"2h": "2h", "3h": "3h"}
+
+
+def _read(path: Path) -> pd.DataFrame:
     return pd.read_csv(path, compression="gzip", parse_dates=["time"]).sort_values("time").reset_index(drop=True)
+
+
+def load(lake: Path, aclass: str, symbol: str, tf: str) -> pd.DataFrame:
+    base = f"{symbol.replace('/', '')}"
+    if tf in _RESAMPLE:                                   # resample 2h/3h from 1h (portable, no-lookahead)
+        df = _read(Path(lake) / aclass / f"{base}_1h.csv.gz").set_index("time")
+        agg = {"open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"}
+        out = (df.resample(_RESAMPLE[tf], label="left", closed="left").agg(agg)
+               .dropna(subset=["open", "high", "low", "close"]).reset_index())
+        return out
+    return _read(Path(lake) / aclass / f"{base}_{tf}.csv.gz")
 
 
 def run_one(df, rule_fn, params, horizon, sl, tp, c, gate_fn=None):
