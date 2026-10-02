@@ -26,6 +26,7 @@ ROOT = HERE.parent
 sys.path.insert(0, str(ROOT / "src"))
 import newsfactor as NF   # noqa: E402  (load_news + class->news mapping)
 import news as NW         # noqa: E402
+import newsfeed as NFEED  # noqa: E402  (N-7 forward headline archive, optional)
 
 DAILY = ROOT / "DAILY_SIGNALS.md"
 HIGH_IMPACT = {"CPI", "PCE", "NFP", "GDP", "FedFunds", "CrudeInventories"}
@@ -133,6 +134,20 @@ def render(news: pd.DataFrame, asof: pd.Timestamp) -> str:
             flag = " ⚠high" if bool(e.get("high")) else ""
             when = e["next_expected"].strftime("%Y-%m-%d %H:%M") + ("" if off else " ~")
             lines.append(f"| {e['name']}{flag} | {e['instrument_class']} | {when} | {e.get('source','projected')} |")
+    # N-7: recent headline flow from the forward archive (if any collected yet)
+    try:
+        hl = NFEED.load_archive()
+        if not hl.empty:
+            recent = hl[hl["published_at"] >= asof - pd.Timedelta(hours=48)]
+            if not recent.empty:
+                by = recent.groupby("instrument_class").size().to_dict()
+                lines += ["", f"### Headline flow (newsdata.io, last 48h): {len(recent)} items — "
+                          + ", ".join(f"{k}:{v}" for k, v in sorted(by.items()))]
+                for _, h in recent.sort_values("published_at", ascending=False).head(3).iterrows():
+                    lines.append(f"- [{h['published_at'].strftime('%m-%d %H:%M')}] ({h['instrument_class']}) {str(h['title'])[:100]}")
+    except Exception:
+        pass
+
     lines += ["", "_Per-signal briefing (once candidates are live): `news: <tag>; next event risk: "
               "<event ~date>` — see brief_for_signal(). No new intraday entry within 30 min of a ⚠high "
               "event; no holding a fresh position through one without a logged reason (D-021 §3)._"]

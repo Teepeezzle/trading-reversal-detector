@@ -82,10 +82,11 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
   OFFICIAL forward schedule (exact release datetimes, ⚠high on tier-1, no key) + cadence/EIA fallback;
   no-trades briefing; per-signal `brief_for_signal()`; 30-min pre-release rule (§3/§9). D-029. Validated live.
   (FXMacroData free actuals are ~90d-capped + forecasts plan-gated → NOT a historical/consensus source.)
-- ⬜ **N-7 (optional)** newsdata.io FORWARD collector (D-027): headlines-only, free=~48h/no archive/no
-  sentiment (tested live) — can't backtest, but a scheduled collector would store each run's latest
-  finance/crypto headlines (timestamped) to self-build an archive, feeding the briefing + a future
-  self-computed keyword event-flow factor. Live/forward use only. `jobs/newsdata_probe.py` confirms the key.
+- 🔵 **N-7** newsdata.io FORWARD collector BUILT: `src/newsfeed.py` (fetch + dedup-append to committed
+  `altdata_committed/news/headlines.csv.gz`) + `jobs/newsdata_collect.py` + `research-newsdata-collect`
+  (daily cron 06:15 UTC, PRs the archive). daily_brief surfaces "headline flow (last 48h)". Forward-only
+  (no backfill/sentiment); self-builds a corpus for a future keyword event-flow factor (N-8). Validated
+  parse/dedup locally; **dispatch once to seed + confirm the live key**. Then it accumulates nightly.
 - ⬜ **T-501** 60/20/20 split + walk-forward; holdout touched ONCE at the end.
 - ⬜ **T-601** 4-week forward paper test; log every signal taken or not.
 - ⬜ **T-701** Scanner + signal spec + daily morning routine.

@@ -1,0 +1,63 @@
+name: Research — newsdata.io headline collector / N-7 (off-peak)
+
+# FORWARD headline collector (standing rule D-021): each run fetches the latest finance headlines
+# (newsdata.io free, ~48h) and APPENDS new ones (dedup) to research/altdata_committed/news/headlines.csv.gz,
+# self-building a timestamped archive over time. No backfill, no sentiment (paid). Lands the archive as
+# a PR. Needs the NEWSDATAIO_API_KEY secret.
+#
+# ONE-TIME SETTING (if create-PR denied): Settings -> Actions -> General -> Workflow permissions ->
+# enable "Allow GitHub Actions to create and approve pull requests".
+on:
+  schedule:
+    - cron: "15 6 * * *"      # 06:15 UTC daily — accumulate headlines
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: research-newsdata-collect
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    name: Collect latest headlines
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false   # avoid create-pull-request "Duplicate header: Authorization" (HTTP 400)
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install research deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r research/requirements.txt
+
+      - name: Collect headlines
+        env:
+          NEWSDATAIO_API_KEY: ${{ secrets.NEWSDATAIO_API_KEY }}
+        run: python research/jobs/newsdata_collect.py
+
+      - name: Open/update headlines PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          add-paths: research/altdata_committed/news/headlines.csv.gz
+          branch: research/news-headlines
+          base: main
+          commit-message: "research: newsdata.io headline archive update (auto)"
+          title: "research: newsdata.io forward headline archive (auto-updating)"
+          body: |
+            Auto-updating forward headline archive (N-7, D-021/D-027). Appends the latest finance/crypto
+            headlines (timestamped, deduped) — self-building a corpus for a future keyword event-flow
+            factor + live briefing context. Forward-only; no backfill, no sentiment (paid). Merge to
+            accumulate.
+          delete-branch: false
