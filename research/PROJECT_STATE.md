@@ -21,10 +21,11 @@ No FX/metals single-factor edge, confirmed with real power. Oil not on HistData 
 the SL/TP engine), `jobs/cryptoalt_refresh.py` (→ data/crypto_alt/), `jobs/alt_sweep.py` (phase 8),
 robustness phase-8 path, + refresh/sweep workflows. Smoke-tested end-to-end on a 2-symbol lake.
 NEW economic signals (funding/basis), not price-only, so Step A's null doesn't predict them.
-B-004 geo-block RESOLVED: user chose **CoinGlass** (D-022). Remaining for Step B: rewire
-`cryptoalt_client.py` to CoinGlass funding (`CG-API-KEY`, free tier 4h+) + use the existing TD crypto
-OHLCV for bars (defer basis); **needs a `COINGLASS_API_KEY` repo secret (user action)**, then
-cryptoalt_refresh → alt_sweep → robustness phase=8.
+B-004 RESOLVED (D-023): CoinGlass free tier is paid-gated ("401 Upgrade plan"); funding (208 KB) was
+fetched via Bybit from a non-US box and COMMITTED to `research/altdata_committed/funding/` (17/18 coins).
+`cryptoalt_refresh.py` joins committed funding to TD crypto bars — no key/network/geo issue (the
+COINGLASS_API_KEY secret is now unused). Validated end-to-end locally. **Step B READY TO RUN:** dispatch
+research-cryptoalt-refresh → research-alt-sweep → research-robustness phase=8.
 
 **NEW STANDING RULE (D-021, spec: NEWS_LAYER.md):** a fundamental/news layer — CONTEXT & FILTER, never
 a standalone signal; strict UTC timestamping/no-lookahead; forward event calendar (30-min pre-release
@@ -118,4 +119,4 @@ Phase 6 (4-week forward paper) → Phase 7 (deploy). Keep pooling per class (D-0
 - How deep is Twelve Data free 15m/1h history in practice? (measure, record).
 - Crypto alt universe + any delisting handling we can approximate.
 
-_Last updated: 2026-10-02 (session 2 — Step B → CoinGlass (needs key); NEW standing rule: news/fundamental layer, spec in NEWS_LAYER.md)._
+_Last updated: 2026-10-02 (session 2 — Step B ready: committed Bybit funding + TD bars (D-023); news-layer standing rule D-021)._

@@ -55,10 +55,11 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
   `jobs/cryptoalt_refresh.py` (→ data/crypto_alt/), `jobs/alt_sweep.py` (phase 8), robustness phase-8
   re-eval path, + `research-cryptoalt-refresh` / `research-alt-sweep` workflows. Smoke-tested
   end-to-end (2-symbol lake: enrich, families fire, sweep writes 60 rows, phase-8 judge routes).
-  B-004 geo-block RESOLVED via CoinGlass (D-022, user chose option a). **Remaining:** rewire
-  `cryptoalt_client.py` to CoinGlass funding (`CG-API-KEY` header, free tier 4h+; funding is 8h so fine)
-  + use the existing TD crypto OHLCV lake for bars; defer basis. **Needs `COINGLASS_API_KEY` secret
-  (user action).** Then: cryptoalt_refresh → alt_sweep → robustness phase=8.
+  B-004 RESOLVED (D-023): CoinGlass free tier is paid-gated ("401 Upgrade plan"), so funding (208 KB)
+  was fetched via Bybit from a non-US box and COMMITTED to `research/altdata_committed/funding/` (17/18
+  coins; MATIC n/a). `cryptoalt_refresh.py` joins committed funding to TD crypto bars — no key/network/
+  geo issue. Validated end-to-end locally (fund_rev 4h-intraday-short Sharpe 0.20, +0.11R @2x, 0 survivors
+  on 9 local coins). basis deferred. **READY: dispatch research-cryptoalt-refresh → alt_sweep → robustness phase=8.**
 
 ## News / fundamental layer (STANDING RULE D-021 — spec: NEWS_LAYER.md). CONTEXT & FILTER, never standalone.
 - ⬜ **N-1** FRED fetcher → US macro release dates + surprises (CPI/PCE/GDP/NFP/rates); `FRED_API_KEY` secret. FX/metals.
