@@ -4,6 +4,22 @@ Append-only. Newest at top. Each entry: date · decision · why · reversible?
 
 ---
 
+### 2026-10-02 · D-014 · Power boost: cross-class pooling DILUTES; crypto 15m nearly clears the bar
+Phase-4.5 pre-registered confirmation of the regime-gated breakout (`donch_brk(20)` & gate, swing)
+under trade-adding data configs (`jobs/power_boost.py`, local lake). Findings:
+- **Move 1 (pool crypto+FX+metals+oil): DEAD.** All gated breakouts go NEGATIVE when pooled across
+  classes (allclass expR −0.05…−0.15R). The edge is crypto-specific; other classes' breakouts
+  dilute it. Do not cross-class-pool breakouts.
+- **Move 2 (crypto 15m): strong.** `donch_brk(20)` & `vol_hi` on 15m: n=133, expR +0.422R, PF 1.77,
+  Sharpe 0.281, +0.242R at 2× cost, **p=0.0006 (clears Bonferroni)**, **DSR=0.895** (just under 0.95).
+  15m lifted both sample and Sharpe. Best edge found so far — one gate short of a candidate.
+- **Move 3 (widen crypto universe): the lever to finish.** config.yaml crypto 9→18 symbols; a CI
+  data-refresh fetches them, then `research-power-boost` re-runs on the bigger pool. More crypto 15m
+  trades at the same Sharpe should push DSR over 0.95.
+CAVEAT carried forward: 15m history is shallow (~52d → ~10d validation window). Even if it clears
+the statistical bar, that is a short, possibly single-regime sample — Phase-5 walk-forward + Phase-6
+forward paper stay MANDATORY before any deployment. Thresholds not loosened. _Reversible: yes._
+
 ### 2026-10-02 · D-013 · Phase-4 = Phase-3 leads × regime gates; same gauntlet, own MTC family
 Phase 3 left 0 standalone candidates, only leads. Phase 4 (T-401) crosses **every** phase-3
 base-gate PASS (read from the registry — no cherry-picking) with a fixed gate catalogue
