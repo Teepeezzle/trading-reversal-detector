@@ -21,11 +21,14 @@ No FX/metals single-factor edge, confirmed with real power. Oil not on HistData 
 the SL/TP engine), `jobs/cryptoalt_refresh.py` (→ data/crypto_alt/), `jobs/alt_sweep.py` (phase 8),
 robustness phase-8 path, + refresh/sweep workflows. Smoke-tested end-to-end on a 2-symbol lake.
 NEW economic signals (funding/basis), not price-only, so Step A's null doesn't predict them.
-B-004 RESOLVED (D-023): CoinGlass free tier is paid-gated ("401 Upgrade plan"); funding (208 KB) was
-fetched via Bybit from a non-US box and COMMITTED to `research/altdata_committed/funding/` (17/18 coins).
-`cryptoalt_refresh.py` joins committed funding to TD crypto bars — no key/network/geo issue (the
-COINGLASS_API_KEY secret is now unused). Validated end-to-end locally. **Step B READY TO RUN:** dispatch
-research-cryptoalt-refresh → research-alt-sweep → research-robustness phase=8.
+**Step B DONE (D-024):** crypto funding families ran in CI on the 17-coin/2y committed-funding lake →
+60 hypotheses → 2 base-PASS → T-303 phase=8 (N=26) → **0 candidates**. Best `fund_rev` short 4h-intraday
+(fade crowded longs) is coherent — Sharpe 0.13, +0.06R at 2× cost, param-robust, beats random — but
+fails MTC (p=0.035 vs 0.0019, DSR 0.15). (Funding via committed Bybit data, D-023; CoinGlass free tier
+was paid-gated; COINGLASS_API_KEY now unused — user may delete.) basis_rev deferred (NaN).
+**PROGRAM TALLY (Phases 3–8): ~1,740 hypotheses, 0 deployable edges.**
+**NEXT = NEWS LAYER (standing rule D-021, tasks N-1..N-6).** FRED_API_KEY + EIA_API_KEY are set; build
+N-1 (FRED macro) + N-4 (news schema/no-lookahead join) first, then N-2 (EIA), N-3 (calendar), N-5/6.
 
 **NEW STANDING RULE (D-021, spec: NEWS_LAYER.md):** a fundamental/news layer — CONTEXT & FILTER, never
 a standalone signal; strict UTC timestamping/no-lookahead; forward event calendar (30-min pre-release
@@ -119,4 +122,4 @@ Phase 6 (4-week forward paper) → Phase 7 (deploy). Keep pooling per class (D-0
 - How deep is Twelve Data free 15m/1h history in practice? (measure, record).
 - Crypto alt universe + any delisting handling we can approximate.
 
-_Last updated: 2026-10-02 (session 2 — Step B ready: committed Bybit funding + TD bars (D-023); news-layer standing rule D-021)._
+_Last updated: 2026-10-02 (session 2 — Step B done: funding 0 candidates (D-024); ~1,740 hypotheses, 0 edges; news layer next)._
