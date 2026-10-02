@@ -21,11 +21,12 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
 ## Phase 3 — single-factor testing (min 100 trades; judge on validation set)
 - ✅ **T-300** Portable backtest engine built & validated: backtest.py/costs.py/single_factor.py
   (pooled, no-lookahead, net-of-cost, benchmarks, 60/20/20). D-011.
-- ⬜ **T-301** Build `jobs/sweep.py` — loop rules × params × classes × horizons × TFs → registry
-  (idempotent/resumable). Pool per asset class (D-011); FX = majors+crosses for ≥100 val.
-- ⬜ **T-302** `research-sweep` nightly workflow (matrix over asset classes; cache /data).
-- ⬜ **T-303** On the batch: 2× cost re-run, parameter sensitivity, multiple-testing correction
-  (Deflated Sharpe / Bonferroni); report # hypotheses tested. Candidates → CANDIDATES.md.
+- ✅ **T-301** `jobs/sweep.py` built (idempotent/resumable `--max`; `src/factors.py` shared logic).
+  Validated on real lake: FX pooled 91–279 trades; 0 PASS (naive factors negative — expected).
+- ✅ **T-302** `research-sweep` nightly workflow: restores lake cache, bounded batch, lands registry
+  as an auto PR (needs "Actions can create PRs" repo setting — noted in the workflow).
+- ⬜ **T-303** When the sweep has run: 2× cost re-run, parameter sensitivity, multiple-testing
+  correction (Deflated Sharpe / Bonferroni); report # hypotheses tested. Candidates → CANDIDATES.md.
 
 ## Phase 4+ (queued, not started)
 - ⬜ **T-401** Combine Phase-3 survivors across regime buckets (trend/range, vol hi/lo, risk on/off).
