@@ -71,7 +71,10 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
 - ⬜ **N-3** Economic-calendar fetcher (Finnhub/FMP free) → forward high/med/low events + forecast (surprise). Needs that key.
 - ✅ **N-4** `src/news.py` BUILT + validated: canonical schema, `latest_asof` no-lookahead join
   (`first_available_at <= bar_open`), `minutes_to_next` 30-min pre-release gate. + `research-news-refresh` workflow.
-- ⬜ **N-5** Gate + regime-tag into the backtest/gauntlet; each news factor = a registry hypothesis (own MTC family).
+- 🔵 **N-5** BUILT + validated: `src/newsfactor.py` (no-lookahead news enrich + gates avoid_pre/quiet/
+  post_event/surp_pos/surp_neg) + `jobs/news_study.py` (BASE vs GATED per rule → NEWS_STUDY.md, D-021 §6;
+  phase-9 registry rows, own MTC family) + `research-news-study` workflow. Local oil smoke-test OK
+  (gates bite on intraday, not daily). **Richest run = CI on deep FX/metals 1h/4h once FRED (B-005) lands.**
 - ⬜ **N-6** DAILY_SIGNALS briefing line: news-context tag + invalidating scheduled event (§9).
 - ⬜ **T-501** 60/20/20 split + walk-forward; holdout touched ONCE at the end.
 - ⬜ **T-601** 4-week forward paper test; log every signal taken or not.
