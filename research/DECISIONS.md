@@ -4,6 +4,20 @@ Append-only. Newest at top. Each entry: date · decision · why · reversible?
 
 ---
 
+### 2026-10-02 · D-017 · Phase 5 verdict: new factor families also yield 0 candidates
+Full phase-5 sweep ran in CI on the widened lake: 540 hypotheses (5 families × 6 TFs × 5 classes ×
+2 horizons) → 58 base-gate PASS → T-303 `--phase 5` (N=288 valid tests, Bonferroni p<1.74e-4, SR*=0.42)
+→ **0 candidates**. Best survivor-of-2×-cost was `bb_breakout` FX 4h swing (Sharpe 0.10, p=0.11) —
+nowhere near the bar. **Cumulative: ~880 hypotheses across Phases 3–5, 0 deployable edges.** The
+single-factor space we can express on free data (mean-reversion, breakout, momentum, pullback,
+stochastic, MACD; gated and ungated; 15m–1D; pooled + widened universe) is **exhausted** and
+contains no robustly significant, cost-surviving, multiple-testing-corrected short-horizon edge.
+Two levers remain, both the user's call: (a) **cross-sectional ranking** (relative strength across
+instruments — structurally different, per-instrument rules can't capture it; needs a cross-instrument
+engine change, T-404); (b) **reconsider the $0 data constraint** (D-003) — shallow 15m (~52d), a
+~17-coin / limited-FX universe, and no survivorship correction are the likely binding limiters.
+Holdout STILL never touched. _Reversible: yes._
+
 ### 2026-10-02 · D-016 · Phase 5 = new factor families across 15m/1h/2h/3h/4h/1D (user-directed)
 Breakout/mean-reversion exhausted → open a fresh single-factor search over families NOT yet tested:
 momentum ignition (`roc_mom`), volatility breakout (`bb_breakout`, Bollinger — distinct from

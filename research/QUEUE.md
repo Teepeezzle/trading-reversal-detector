@@ -39,14 +39,13 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
 - ✅ **T-402** Power boost (Phase 4.5, D-014/D-015) RUN. Move 1 (cross-class) dead; Move 2 (crypto
   15m) looked strong on 9 coins (Sharpe 0.28, DSR 0.895) but Move 3 (widen 9→17) **collapsed it**
   (Sharpe 0.16, DSR 0.43) — the edge was small-sample luck. **No candidate. Breakout lead retired.**
-- 🔵 **T-403 / Phase 5** NEW factor families BUILT (user chose this direction, D-016): `roc_mom`,
-  `bb_breakout`, `ema_pullback`, `stoch_rev`, `macd_mom` in `factors.RULES`; `jobs/family_sweep.py`
-  (~540 hypotheses, 15m/1h/2h/3h/4h/1D, 2h/3h resampled from 1h) + `research-family-sweep` workflow;
-  phase-5 MTC family via `robustness.py --phase 5`. Validated locally (resampling + rules + partial
-  sweep + phase-5 robustness). **Next: run research-family-sweep in CI → merge results →
-  research-robustness phase=5.** Watch for over-fit leads; demand a broad cross-section (lesson of D-015).
-- ⬜ **T-404** (deferred) cross-sectional ranking (long strongest / short weakest in a class) — needs a
-  cross-instrument engine change; separate task if single-factor families also come up empty.
+- ✅ **T-403 / Phase 5** NEW factor families RUN in CI (D-016/D-017): 540 hypotheses → 58 base-PASS →
+  T-303 phase=5 (N=288) → **0 candidates**. Best = `bb_breakout` FX 4h swing (Sharpe 0.10, p=0.11) —
+  far from the bar. Single-factor family space exhausted; ~880 hypotheses across Phases 3–5, 0 edges.
+- ⬜ **T-404 (DECISION POINT — user's call)** Two remaining levers: (a) **cross-sectional ranking**
+  (relative strength across instruments; needs a cross-instrument engine change) — the last
+  structurally-new $0 idea; (b) **reconsider the $0 data constraint** (D-003) — scope paid data for
+  deeper intraday / survivorship-aware / broader universe. Or (c) bank "no edge found" and stop.
 - ⬜ **T-501** 60/20/20 split + walk-forward; holdout touched ONCE at the end.
 - ⬜ **T-601** 4-week forward paper test; log every signal taken or not.
 - ⬜ **T-701** Scanner + signal spec + daily morning routine.
