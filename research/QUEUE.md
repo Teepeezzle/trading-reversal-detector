@@ -36,13 +36,14 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
   (D-013). Local preview on real lake: 119 combos → 21 base-PASS, 13 survive 2× cost; best =
   crypto `donch_brk`+`vol_hi`/`ny` (Sharpe ≈0.18, DSR ≈0.66) — still 0 cleared MTC (power-limited).
   **Next: run research-combo-sweep in CI → merge results → research-robustness (phase=4).**
-- 🔵 **T-402** Power boost (Phase 4.5, `jobs/power_boost.py` + `research-power-boost` workflow, D-014):
-  Move 1 (cross-class pool) DEAD (dilutes to negative); Move 2 (crypto 15m) strong — `donch_brk(20)`
-  & `vol_hi` 15m: Sharpe 0.281, p=0.0006 (clears Bonferroni), DSR 0.895 (just under). Move 3 =
-  widened crypto universe (config 9→18). **Next: dispatch research-data-refresh (fetch new crypto)
-  → research-power-boost on the bigger pool; see if DSR clears 0.95.**
-- ⬜ **T-403** Whatever the power boost shows, the 15m window is shallow (~52d) → **Phase 5
-  walk-forward** on the best-powered crypto-breakout config is mandatory before CANDIDATES.md.
+- ✅ **T-402** Power boost (Phase 4.5, D-014/D-015) RUN. Move 1 (cross-class) dead; Move 2 (crypto
+  15m) looked strong on 9 coins (Sharpe 0.28, DSR 0.895) but Move 3 (widen 9→17) **collapsed it**
+  (Sharpe 0.16, DSR 0.43) — the edge was small-sample luck. **No candidate. Breakout lead retired.**
+- ⬜ **T-403** NEW DIRECTION needed (breakout line exhausted). Options: (a) new factor families —
+  momentum continuation, volatility-breakout with different exits, cross-sectional ranking, time-of-day;
+  (b) reconsider the data/budget constraint (free intraday depth may be the binding limiter). Decide
+  with the user before building. Phase 5 walk-forward only once a lead actually survives the gauntlet
+  on a broad cross-section.
 - ⬜ **T-501** 60/20/20 split + walk-forward; holdout touched ONCE at the end.
 - ⬜ **T-601** 4-week forward paper test; log every signal taken or not.
 - ⬜ **T-701** Scanner + signal spec + daily morning routine.
