@@ -64,10 +64,13 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
   param-robust) fails MTC (p=0.035 vs 0.0019, DSR 0.15). Funding signals behave like everything else.
 
 ## News / fundamental layer (STANDING RULE D-021 — spec: NEWS_LAYER.md). CONTEXT & FILTER, never standalone.
-- ⬜ **N-1** FRED fetcher → US macro release dates + surprises (CPI/PCE/GDP/NFP/rates); `FRED_API_KEY` secret. FX/metals.
-- ⬜ **N-2** EIA fetcher → weekly crude inventories + surprise vs forecast; `EIA_API_KEY` secret. Oil.
-- ⬜ **N-3** Economic-calendar fetcher (Finnhub/FMP free) → forward high/med/low events; that key. Event calendar (§3).
-- ⬜ **N-4** `src/news.py` — news schema + no-lookahead join (`first_available_at <= bar_open`) + 30-min pre-release gate.
+- 🔵 **N-1** FRED fetcher BUILT (`jobs/news_refresh.py`): first-release observations for CPI/PCE/NFP/
+  GDP/UNRATE/FedFunds, stamped at standard ET release time. `FRED_API_KEY` set. Pending CI validation.
+- 🔵 **N-2** EIA fetcher BUILT (same job): weekly crude stocks (WCESTUS1) + w/w change, Wed-10:30-ET stamp.
+  `EIA_API_KEY` set. Pending CI validation.
+- ⬜ **N-3** Economic-calendar fetcher (Finnhub/FMP free) → forward high/med/low events + forecast (surprise). Needs that key.
+- ✅ **N-4** `src/news.py` BUILT + validated: canonical schema, `latest_asof` no-lookahead join
+  (`first_available_at <= bar_open`), `minutes_to_next` 30-min pre-release gate. + `research-news-refresh` workflow.
 - ⬜ **N-5** Gate + regime-tag into the backtest/gauntlet; each news factor = a registry hypothesis (own MTC family).
 - ⬜ **N-6** DAILY_SIGNALS briefing line: news-context tag + invalidating scheduled event (§9).
 - ⬜ **T-501** 60/20/20 split + walk-forward; holdout touched ONCE at the end.
