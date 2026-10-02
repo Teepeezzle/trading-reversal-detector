@@ -42,10 +42,14 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
 - ✅ **T-403 / Phase 5** NEW factor families RUN in CI (D-016/D-017): 540 hypotheses → 58 base-PASS →
   T-303 phase=5 (N=288) → **0 candidates**. Best = `bb_breakout` FX 4h swing (Sharpe 0.10, p=0.11) —
   far from the bar. Single-factor family space exhausted; ~880 hypotheses across Phases 3–5, 0 edges.
-- ⬜ **T-404 (DECISION POINT — user's call)** Two remaining levers: (a) **cross-sectional ranking**
-  (relative strength across instruments; needs a cross-instrument engine change) — the last
-  structurally-new $0 idea; (b) **reconsider the $0 data constraint** (D-003) — scope paid data for
-  deeper intraday / survivorship-aware / broader universe. Or (c) bank "no edge found" and stop.
+- 🔵 **T-404 / Phase 6** cross-sectional ranking BUILT + validated (D-018): `src/xsectional.py`
+  engine, `jobs/xs_sweep.py` grid (class × 15m/1h/4h/1D × (L,H) × k × ls/lo), `robustness.py --phase 6`
+  xs re-eval (2× cost + L/H sensitivity + MTC), `research-xsweep` workflow. Local: engine + judge +
+  forced-PASS gauntlet all run clean; 9-coin crypto weak/marginal. **Next: run research-xsweep in CI
+  on the widened 17-coin lake → merge results → research-robustness phase=6.**
+- ⬜ **T-405** If cross-sectional also yields 0 candidates → the $0 idea space is exhausted; decision
+  reverts to **reconsidering the data/budget constraint** (D-003) — scope paid/deeper/survivorship-aware
+  data with providers + costs, for the user to decide. Holdout remains sealed until a real candidate.
 - ⬜ **T-501** 60/20/20 split + walk-forward; holdout touched ONCE at the end.
 - ⬜ **T-601** 4-week forward paper test; log every signal taken or not.
 - ⬜ **T-701** Scanner + signal spec + daily morning routine.
