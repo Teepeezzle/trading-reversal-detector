@@ -4,6 +4,19 @@ Append-only. Newest at top. Each entry: date · decision · why · reversible?
 
 ---
 
+### 2026-10-02 · D-012 · T-303 promotion gate = 2× cost + sensitivity + Bonferroni + Deflated Sharpe
+A base-gate PASS (≥100 val trades, positive net expectancy, beat random) is only a lead; the
+winner of a ~220-hypothesis sweep is inflated by selection alone. **Decision:** a hypothesis
+becomes a CANDIDATE only if it survives ALL four independent checks, judged on validation:
+(1) **2× transaction cost** still n≥100, expR>0, PF>1; (2) **parameter sensitivity** — ≥60% of
+±1–2 neighbors stay positive with positive median (edge is a plateau, not a spike); (3)
+**Bonferroni** one-sided p < 0.05 / N where N = hypotheses actually tested; (4) **Deflated Sharpe
+Ratio > 0.95** (Bailey & López de Prado — deflates for N trials via the expected-max-Sharpe
+benchmark and for skew/fat tails). p-values use the normal approximation to the t-distribution,
+valid at n≥100. All math is stdlib (`research/src/mtc.py`, `statistics.NormalDist`) — no scipy, so
+it runs identically off-peak. Implemented in `research/jobs/robustness.py`; nothing reaches
+CANDIDATES.md otherwise. _Reversible: yes (thresholds are CLI args)._
+
 ### 2026-10-01 · D-011 · Phase-3 tests POOL a rule across an asset class (sample size)
 Engine validation showed single-instrument rules fire only 8–54 trades (val 8–21) — far below
 the 100-trade minimum. **Decision:** every single-factor test pools a rule across ALL instruments

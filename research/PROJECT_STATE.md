@@ -7,9 +7,11 @@ INTRADAY (open→same-session close) and SHORT SWING (≤5 trading days) across
 Forex, Metals (XAU/XAG), Oil (WTI/Brent), and Crypto (BTC/ETH/liquid alts).
 Success = documented edge net of costs + a daily top-5 actionable list.
 
-**Current phase:** PHASE 3 — engine + SWEEP built & validated (jobs/sweep.py idempotent/resumable;
-research-sweep nightly workflow lands registry as a PR). Phases 0–2 done. Next: run the sweep in
-CI to populate HYPOTHESIS_REGISTRY, then T-303 (2×-cost + sensitivity + multiple-testing correction).
+**Current phase:** PHASE 3 — engine + SWEEP + T-303 robustness gauntlet all built & validated.
+Phases 0–2 done. The sweep (research-sweep) landed on main and was dispatched to populate
+HYPOTHESIS_REGISTRY; T-303 (jobs/robustness.py + src/mtc.py + research-robustness workflow) is
+ready to run the moment the registry has rows. Next: confirm the sweep produced results, then
+dispatch research-robustness to promote any survivors into CANDIDATES.md.
 
 ---
 
@@ -45,22 +47,26 @@ CI to populate HYPOTHESIS_REGISTRY, then T-303 (2×-cost + sensitivity + multipl
 - **Phase 2 done:** indicator catalogue (PHASE2_INDICATORS.md) + portable `research/src/indicators.py`.
 - Bigdata.com assessed → interactive macro-event overlay only, MCP-ONLY/PAYG (D-009). No open blockers.
 
-## Done (Phase 3 engine + sweep)
+## Done (Phase 3 engine + sweep + T-303)
 - Engine: `src/backtest.py`, `costs.py`, `src/factors.py` (shared), `jobs/single_factor.py`.
-- Sweep: `jobs/sweep.py` (idempotent/resumable) + `.github/workflows/research-sweep.yml` (lands
-  results as an auto PR). Validated on real lake: pooled 91–279 trades, 0 PASS (naive = negative).
-- Findings: D-011 (pool per class). Engine refuses to bless noise — honest "no edge yet" result.
+- Sweep: `jobs/sweep.py` (idempotent/resumable) + `research-sweep.yml` (lands results as an auto PR).
+  Merged to main (PR #7) and dispatched. Validated on real lake: pooled 91–279 trades, 0 PASS.
+- T-303 gauntlet: `jobs/robustness.py` + `src/mtc.py` (Bonferroni + Deflated Sharpe, stdlib-only) +
+  `research-robustness.yml`. 2×-cost + sensitivity + MTC; survivors → CANDIDATES.md, report →
+  ROBUSTNESS.md (D-012). Validated on a synthetic PASS (correctly rejected on every statistical gate).
+- Findings: D-011 (pool per class), D-012 (promotion gate). Engine refuses to bless noise.
 
 ## Next
-1. **Run the sweep in CI** (dispatch research-sweep) to populate HYPOTHESIS_REGISTRY across the grid
-   (~220 hypotheses; resumes nightly). Needs the "Actions can create PRs" repo setting for the PR step.
-2. **T-303** on the populated registry: 2×-cost re-run on anything positive, parameter sensitivity
-   (±1–2 around winners), multiple-testing correction (Deflated Sharpe / Bonferroni), # hypotheses
-   reported. Only then does anything reach CANDIDATES.md. Holdout stays sealed until the very end.
+1. **Confirm the sweep populated HYPOTHESIS_REGISTRY** (research-sweep run / its auto-PR). The sweep
+   depends on the data-refresh having warmed the lake cache first; if the cache was empty it no-ops
+   cleanly ("nothing to sweep") — in that case let research-data-refresh run first, then re-dispatch.
+2. **Dispatch research-robustness** (T-303) on the populated registry → promotes survivors to
+   CANDIDATES.md. Expected early result: 0 survivors (honest). Holdout stays sealed until the very end.
+3. If/when candidates exist → **Phase 4** (combinations/regimes) then **Phase 5** (OOS/walk-forward).
 
 ## Open questions
 - Exact Twelve Data symbols for WTI/Brent on the free plan (verify on first pull).
 - How deep is Twelve Data free 15m/1h history in practice? (measure, record).
 - Crypto alt universe + any delisting handling we can approximate.
 
-_Last updated: 2026-10-01 (session 1)._
+_Last updated: 2026-10-02 (session 2 — sweep merged + T-303 built)._

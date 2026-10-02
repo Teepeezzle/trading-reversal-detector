@@ -25,8 +25,11 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
   Validated on real lake: FX pooled 91–279 trades; 0 PASS (naive factors negative — expected).
 - ✅ **T-302** `research-sweep` nightly workflow: restores lake cache, bounded batch, lands registry
   as an auto PR (needs "Actions can create PRs" repo setting — noted in the workflow).
-- ⬜ **T-303** When the sweep has run: 2× cost re-run, parameter sensitivity, multiple-testing
-  correction (Deflated Sharpe / Bonferroni); report # hypotheses tested. Candidates → CANDIDATES.md.
+- 🔵 **T-303** Robustness gauntlet BUILT (`jobs/robustness.py` + `src/mtc.py` + `research-robustness`
+  workflow): 2× cost + parameter sensitivity + Bonferroni + Deflated Sharpe, promotes survivors →
+  CANDIDATES.md, full report → ROBUSTNESS.md (D-012). Validated on a synthetic PASS (correctly
+  rejected: dies at 2× cost, p=0.38, DSR=0.05). **Waiting on the sweep to populate the registry**,
+  then dispatch `research-robustness` to run it for real.
 
 ## Phase 4+ (queued, not started)
 - ⬜ **T-401** Combine Phase-3 survivors across regime buckets (trend/range, vol hi/lo, risk on/off).
@@ -35,7 +38,9 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
 - ⬜ **T-701** Scanner + signal spec + daily morning routine.
 
 ## Bias-control tasks (apply throughout, report)
-- ⬜ **T-901** 2× transaction-cost re-run on any survivor.
-- ⬜ **T-902** Parameter sensitivity sweep (±1–2 around winners).
-- ⬜ **T-903** Multiple-testing correction (Deflated Sharpe / Bonferroni) + count of hypotheses tested.
-- ⬜ **T-904** Benchmarks: buy-and-hold + random-entry control (same stop/target).
+- ✅ **T-901** 2× transaction-cost re-run on any survivor — implemented in `jobs/robustness.py`.
+- ✅ **T-902** Parameter sensitivity sweep (±1–2 around winners) — implemented in `jobs/robustness.py`.
+- ✅ **T-903** Multiple-testing correction (Bonferroni + Deflated Sharpe) + count of hypotheses
+  tested — implemented in `src/mtc.py` / `jobs/robustness.py` (D-012).
+- ✅ **T-904** Benchmarks: buy-and-hold + random-entry control (same stop/target) — in the engine
+  (`backtest.py`), recorded per hypothesis in HYPOTHESIS_REGISTRY.csv.
