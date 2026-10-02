@@ -45,16 +45,22 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r research/requirements.txt
 
-      - name: News refresh (FRED + EIA)
+      - name: News refresh (FRED + EIA + FMP calendar)
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
           EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+          FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
         run: python research/jobs/news_refresh.py --start "${{ github.event.inputs.start || '2023-01-01' }}"
+
+      - name: Regenerate daily briefing (N-6)
+        run: python research/jobs/daily_brief.py
 
       - name: Open/update news PR
         uses: peter-evans/create-pull-request@v6
         with:
-          add-paths: research/altdata_committed/news/*.csv.gz
+          add-paths: |
+            research/altdata_committed/news/*.csv.gz
+            research/DAILY_SIGNALS.md
           branch: research/news-data
           base: main
           commit-message: "research: news-layer macro data (FRED + EIA) (auto)"

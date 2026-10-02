@@ -77,8 +77,8 @@ def main() -> int:
     news = NF.load_news()
     if news.empty:
         print("No news table (research/altdata_committed/news/) — run news_refresh first."); return 0
-    classes = [c for c in CLASSES if NF.NEWS_NAMES.get(c) and
-               news["name"].isin(NF.NEWS_NAMES[c]).any()]
+    classes = [c for c in CLASSES if NF.CLASS_SRC.get(c) and
+               news["instrument_class"].isin(NF.CLASS_SRC[c]).any()]
     print(f"news classes with data: {classes}  (news rows: {len(news)})")
     done = existing_ids()
     cells = []            # for MTC + report

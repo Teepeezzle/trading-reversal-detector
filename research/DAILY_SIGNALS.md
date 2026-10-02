@@ -4,6 +4,18 @@ Nothing trades unless it appears here. Empty is valid: "no trades today" is a re
 Generated pre-dawn by the `briefing` workflow (Phase 6+). Until a validated candidate
 exists, this stays empty by design.
 
+
+## Briefing 2026-10-02
+**No trades today.** No validated candidate exists yet (Phases 3–9 found 0 MTC-significant edges); an empty list is the honest output. The event-risk calendar below is live.
+
+### Event-risk calendar (next 10 days, projected from release cadence)
+| event | class | next (approx, UTC) | cadence (d) |
+|---|---|---|--:|
+| CrudeInventories ⚠high | oil | 2026-10-07 14:30 | 7.0 |
+| CPI ⚠high | forex_macro | 2026-10-10 12:30 | 29.0 |
+
+_Per-signal briefing (once candidates are live): `news: <tag>; next event risk: <event ~date>` — see brief_for_signal(). No new intraday entry within 30 min of a ⚠high event; no holding a fresh position through one without a logged reason (D-021 §3)._
+
 ---
 
 ## 2026-10-01

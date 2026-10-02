@@ -118,6 +118,66 @@ def fetch_eia(start: str) -> pd.DataFrame:
     return df
 
 
+def _num(v):
+    """Parse FMP numeric-ish values: 3.2, '3.2%', '200K', '1.5M', '-0.3B' -> float (NaN if unparseable)."""
+    if v is None or v == "":
+        return float("nan")
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        pass
+    s = str(v).strip().replace(",", "").replace("%", "")
+    mult = 1.0
+    if s[-1:].upper() in ("K", "M", "B", "T"):
+        mult = {"K": 1e3, "M": 1e6, "B": 1e9, "T": 1e12}[s[-1].upper()]; s = s[:-1]
+    try:
+        return float(s) * mult
+    except ValueError:
+        return float("nan")
+
+
+def fetch_fmp(start: str) -> pd.DataFrame:
+    """N-3 — FMP economic calendar: US macro events with TRUE consensus surprise (actual - estimate).
+    Free Finnhub cannot serve this (premium-gated); FMP free Basic covers it. Needs FMP_API_KEY."""
+    key = os.environ.get("FMP_API_KEY", "")
+    if not key:
+        log_blocker("N-3 FMP: FMP_API_KEY not set — skipped (Finnhub economic calendar is premium-gated)."); return N.empty()
+    rows = []
+    cur = pd.Timestamp(start); end = pd.Timestamp.utcnow().normalize() + pd.Timedelta(days=14)
+    while cur < end:
+        nxt = min(cur + pd.Timedelta(days=90), end)
+        try:
+            r = requests.get("https://financialmodelingprep.com/stable/economic-calendar",
+                             params={"from": cur.date().isoformat(), "to": nxt.date().isoformat(), "apikey": key},
+                             headers=UA, timeout=30)
+            if r.status_code != 200:
+                print(f"    FMP: HTTP {r.status_code} {r.text[:160]!r}"); break
+            data = r.json()
+            if isinstance(data, dict):           # error object (e.g. premium/limit)
+                print(f"    FMP: {str(data)[:180]}"); break
+        except Exception as exc:  # noqa: BLE001
+            print(f"    FMP: ERR {exc}"); break
+        for d in data:
+            if (d.get("country") or "").upper() not in ("US", "USA", "UNITED STATES"):
+                continue
+            impact = (d.get("impact") or "").lower()
+            if impact not in ("high", "medium"):
+                continue
+            t = pd.to_datetime(d.get("date"), errors="coerce", utc=True)
+            if pd.isna(t):
+                continue
+            rows.append(dict(event_id=f"FMP:{d.get('event')}:{d.get('date')}", source="FMP",
+                             name=str(d.get("event"))[:48], instrument_class="forex_macro",
+                             published_at=t.tz_localize(None), first_available_at=t.tz_localize(None),
+                             actual=_num(d.get("actual")), prior=_num(d.get("previous")),
+                             forecast=_num(d.get("estimate")), surprise=None,
+                             impact="high" if impact == "high" else "medium"))
+        cur = nxt
+    df = N.normalize(pd.DataFrame(rows))        # surprise = actual - forecast (true consensus) in normalize
+    print(f"  FMP: {len(df)} US macro calendar events (consensus surprise)")
+    return df
+
+
 def main() -> int:
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -134,7 +194,10 @@ def main() -> int:
     eia = fetch_eia(a.start)
     if not eia.empty:
         N.save(eia, out / "eia.csv.gz")
-    print(f"done. fred={len(fred)} eia={len(eia)} -> {out}")
+    fmp = fetch_fmp(a.start)
+    if not fmp.empty:
+        N.save(fmp, out / "fmp_calendar.csv.gz")
+    print(f"done. fred={len(fred)} eia={len(eia)} fmp={len(fmp)} -> {out}")
     return 0
 
 

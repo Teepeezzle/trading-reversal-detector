@@ -38,9 +38,12 @@ MTC family); N-6 (DAILY_SIGNALS briefing line). **N-5 DONE (D-025):** ran in CI 
 1h/4h + macro news (FRED 235 + EIA 195). 380 base-vs-gated cells → 11 improve / 131 just-cut / 48 hurt
 / 175 thin; **0 clear MTC**. News gates mostly cut trades; the surprise-SIGN split + quiet regime are
 the real (coherent, non-significant) effects → news confirmed as REGIME TAG / context, not a standalone
-edge. FRED key fixed (B-005 resolved). **Remaining: N-3 (economic calendar w/ true consensus surprise —
-would sharpen the surprise-sign lead; needs a free Finnhub/FMP key) + N-6 (DAILY_SIGNALS briefing line).**
-News = CONTEXT & FILTER only.
+edge. FRED key fixed (B-005). **N-6 DONE** (`jobs/daily_brief.py` — forward event-risk calendar + per-signal
+briefing, wired into news-refresh). **N-3 BUILT on FMP** (`fetch_fmp` — true consensus surprise
+actual−estimate): Finnhub's economic calendar is PREMIUM-gated (the FINNHUB_API_KEY can't reach it),
+so N-3 uses FMP's free Basic tier → **needs `FMP_API_KEY` secret**. newsfactor now filters by
+instrument_class so FMP events flow in automatically. **To get consensus surprises: add FMP_API_KEY →
+re-dispatch research-news-refresh → research-news-study.** News = CONTEXT & FILTER only.
 
 **NEW STANDING RULE (D-021, spec: NEWS_LAYER.md):** a fundamental/news layer — CONTEXT & FILTER, never
 a standalone signal; strict UTC timestamping/no-lookahead; forward event calendar (30-min pre-release
@@ -134,4 +137,4 @@ Phase 6 (4-week forward paper) → Phase 7 (deploy). Keep pooling per class (D-0
 - How deep is Twelve Data free 15m/1h history in practice? (measure, record).
 - Crypto alt universe + any delisting handling we can approximate.
 
-_Last updated: 2026-10-02 (session 2 — N-5 news-gate study ran: 11 improve / 0 MTC; surprise-sign is the real tilt; N-3/N-6 remain)._
+_Last updated: 2026-10-02 (session 2 — N-6 done; N-3 built on FMP (Finnhub calendar premium-gated), needs FMP_API_KEY)._

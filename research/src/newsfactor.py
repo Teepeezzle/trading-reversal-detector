@@ -33,25 +33,31 @@ ROOT = Path(__file__).resolve().parent.parent
 NEWS_DIR = ROOT / "altdata_committed" / "news"
 MIN_TRADES = 100
 
-# which release names apply to each asset class
-MACRO = ["CPI", "PCE", "NFP", "GDP", "Unemployment", "FedFunds"]
-NEWS_NAMES = {"oil": ["CrudeInventories"], "forex_majors": MACRO,
-              "forex_crosses": MACRO, "metals": MACRO}
+# which news instrument_class(es) apply to each tradable asset class (source-agnostic: FRED/FMP macro
+# => "forex_macro"; EIA/FMP oil => "oil"). Filtering by class (not event name) lets any source flow in.
+CLASS_SRC = {"oil": {"oil"}, "forex_majors": {"forex_macro"},
+             "forex_crosses": {"forex_macro"}, "metals": {"forex_macro"}}
 
 
 def load_news() -> pd.DataFrame:
     frames = []
-    for f in ("fred.csv.gz", "eia.csv.gz"):
+    for f in ("fred.csv.gz", "eia.csv.gz", "fmp_calendar.csv.gz"):
         p = NEWS_DIR / f
         if p.exists():
             frames.append(NW.load(p))
     return pd.concat(frames, ignore_index=True) if frames else NW.empty()
 
 
+def news_for_class(news: pd.DataFrame, aclass: str) -> pd.DataFrame:
+    srcs = CLASS_SRC.get(aclass, set())
+    if news is None or news.empty or not srcs:
+        return NW.empty()
+    return news[news["instrument_class"].isin(srcs)]
+
+
 def enrich_news(bars: pd.DataFrame, news: pd.DataFrame, aclass: str) -> pd.DataFrame:
-    names = NEWS_NAMES.get(aclass, [])
-    sub = news[news["name"].isin(names)] if (news is not None and not news.empty and names) else NW.empty()
-    out = NW.latest_asof(bars, sub, names=names)              # adds news_name/news_surprise/news_age_h
+    sub = news_for_class(news, aclass)                        # filter by instrument_class (source-agnostic)
+    out = NW.latest_asof(bars, sub, names=None)               # adds news_name/news_surprise/news_age_h
     out["mins_to_next_h"] = NW.minutes_to_next(bars, sub, impact=("high",)).values
     return out
 
