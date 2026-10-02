@@ -44,10 +44,12 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
   far from the bar. Single-factor family space exhausted; ~880 hypotheses across Phases 3–5, 0 edges.
 - ✅ **T-404 / Phase 6** cross-sectional ranking RUN in CI (D-018/D-019): 320 configs → 25 base-PASS →
   T-303 phase=6 (N=132) → **0 candidates** (best crypto 15m momentum, Sharpe 0.078, p=0.22, DSR 0.002).
-- 🔴 **T-405 (DECISION — $0 space exhausted)** Phases 3–6 = ~1,200 hypotheses, every structurally-
-  distinct approach, **0 deployable edges**. Only lever left is **data/budget** (D-003): deeper
-  intraday history / survivorship-aware universe / more instruments / alternative data. User's call —
-  I can scope providers + costs on request. Holdout still sealed for a genuine future candidate.
+- 🔵 **T-405 (SCOPED → DATA_OPTIONS.md)** Providers+costs scoped. Key finding: the depth limiter was
+  the *TD-free* cap, not free data per se. **Reopen the search for ~$0**: (A) Dukascopy = FREE 15–20y
+  5m/15m FX/metals/oil → re-run the gauntlet with real power; (B) Binance + CoinGlass/CoinAPI free =
+  deep crypto OHLCV + NEW alt-data families (funding/OI/basis); (C) optional Databento PAYG ~$0.50/GB
+  for true metals/oil futures. Kaiko/Amberdata ($$$) and monthly unified APIs = unnecessary. Awaiting
+  user's go on Step A/B (each a portable fetcher like yfinance_client, lake-format, reuses all pipeline).
 - ⬜ **T-501** 60/20/20 split + walk-forward; holdout touched ONCE at the end.
 - ⬜ **T-601** 4-week forward paper test; log every signal taken or not.
 - ⬜ **T-701** Scanner + signal spec + daily morning routine.
