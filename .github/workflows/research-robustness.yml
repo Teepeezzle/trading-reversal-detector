@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       phase:
-        description: "trial family to judge: '3', '4', or 'all'"
+        description: "trial family to judge: '3'..'10' (e.g. 8=crypto alt, 10=AV sentiment) or 'all'"
         required: false
         default: "3"
       alpha:
