@@ -143,7 +143,8 @@ def fetch_fmp(start: str) -> pd.DataFrame:
     if not key:
         log_blocker("N-3 FMP: FMP_API_KEY not set — skipped (Finnhub economic calendar is premium-gated)."); return N.empty()
     rows = []
-    cur = pd.Timestamp(start); end = pd.Timestamp.utcnow().normalize() + pd.Timedelta(days=14)
+    cur = pd.Timestamp(start)                                    # tz-naive
+    end = pd.Timestamp.now("UTC").tz_localize(None).normalize() + pd.Timedelta(days=14)  # tz-naive UTC
     while cur < end:
         nxt = min(cur + pd.Timedelta(days=90), end)
         try:
