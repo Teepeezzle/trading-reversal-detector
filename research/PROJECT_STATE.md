@@ -7,13 +7,13 @@ INTRADAY (open→same-session close) and SHORT SWING (≤5 trading days) across
 Forex, Metals (XAU/XAG), Oil (WTI/Brent), and Crypto (BTC/ETH/liquid alts).
 Success = documented edge net of costs + a daily top-5 actionable list.
 
-**Current phase:** PHASE 6 BUILT (T-404, D-018) — cross-sectional relative-strength (user-directed,
-the last structurally-new $0 idea). New engine `src/xsectional.py` (rank a class by momentum, long
-top-k / short bottom-k, non-overlapping rebalances, no-lookahead, net of cost) + `jobs/xs_sweep.py`
-(class × 15m/1h/4h/1D × (L,H) × k × ls/lo, phase 6) + `robustness.py --phase 6` xs re-eval. Validated
-locally end-to-end (9-coin crypto weak/marginal). Phases 3–5 left 0 edges (~880 hypotheses). Holdout
-never touched. NEXT: run research-xsweep in CI on the widened 17-coin lake → merge → research-robustness
-phase=6. If this too is empty (T-405) → reconsider the $0 data/budget constraint.
+**Current phase:** PHASE 6 COMPLETE (D-019) — cross-sectional ran in CI: 320 configs → 25 base-PASS →
+T-303 phase=6 (N=132) → **0 candidates** (best crypto 15m momentum, Sharpe 0.078, p=0.22, DSR 0.002).
+**PROGRAM RESULT: ~1,200 hypotheses across Phases 3–6, every structurally-distinct approach, 0
+deployable edges.** No robust short-horizon technical edge exists under the $0/free-data constraints
+with this gauntlet. Holdout NEVER touched. NEXT = **T-405 decision (user's call): data/budget** — the
+only remaining lever (deeper intraday / survivorship-aware / more instruments / alt data). I can scope
+providers + costs on request. The framework + ~1,200-row registry + this null result are the deliverable.
 Next: run research-combo-sweep in CI → merge results → research-robustness `phase=4`; then Phase 5.
 
 ---
@@ -100,4 +100,4 @@ Phase 6 (4-week forward paper) → Phase 7 (deploy). Keep pooling per class (D-0
 - How deep is Twelve Data free 15m/1h history in practice? (measure, record).
 - Crypto alt universe + any delisting handling we can approximate.
 
-_Last updated: 2026-10-02 (session 2 — Phase 6 built: cross-sectional engine + sweep + judge, ready to run in CI)._
+_Last updated: 2026-10-02 (session 2 — Phase 6 done: cross-sectional 0 candidates; ~1,200 hypotheses, 0 edges; budget decision next)._
