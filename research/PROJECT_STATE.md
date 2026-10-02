@@ -7,14 +7,13 @@ INTRADAY (open→same-session close) and SHORT SWING (≤5 trading days) across
 Forex, Metals (XAU/XAG), Oil (WTI/Brent), and Crypto (BTC/ETH/liquid alts).
 Success = documented edge net of costs + a daily top-5 actionable list.
 
-**Current phase:** PHASE 5 BUILT (T-403, D-016) — NEW factor families (user-directed). Phases 3–4.5
-retired the breakout/mean-reversion lines (0 robust edges; the 15m lead died on universe widening,
-D-015). Phase 5 opens a fresh single-factor search: `roc_mom`, `bb_breakout`, `ema_pullback`,
-`stoch_rev`, `macd_mom` across 15m/1h/2h/3h/4h/1D (2h/3h resampled from 1h). `jobs/family_sweep.py`
-(~540 hypotheses) + `research-family-sweep` workflow; its own MTC family (`robustness.py --phase 5`).
-Validated locally. Holdout never touched.
-NEXT: run research-family-sweep in CI (on the widened 17-coin lake) → merge results → research-
-robustness phase=5. Apply the D-015 lesson: distrust any lead until it holds on a broad cross-section.
+**Current phase:** PHASE 5 COMPLETE (D-017) — new factor families ran in CI: 540 hypotheses → 58
+base-PASS → T-303 phase=5 (N=288) → **0 candidates** (best `bb_breakout` FX 4h, Sharpe 0.10, p=0.11).
+**Cumulative: ~880 hypotheses across Phases 3–5, 0 deployable edges.** The single-factor space
+expressible on free data is exhausted. Holdout STILL never touched.
+NEXT = DECISION POINT (T-404, user's call): (a) cross-sectional ranking (last structurally-new $0
+idea; needs a cross-instrument engine change); (b) reconsider the $0 data constraint (deeper intraday
+/ survivorship-aware / broader universe); or (c) bank "no robust edge found" and stop.
 Next: run research-combo-sweep in CI → merge results → research-robustness `phase=4`; then Phase 5.
 
 ---
@@ -101,4 +100,4 @@ Phase 6 (4-week forward paper) → Phase 7 (deploy). Keep pooling per class (D-0
 - How deep is Twelve Data free 15m/1h history in practice? (measure, record).
 - Crypto alt universe + any delisting handling we can approximate.
 
-_Last updated: 2026-10-02 (session 2 — Phase 5 built: new factor families across 15m–1D, ready to sweep in CI)._
+_Last updated: 2026-10-02 (session 2 — Phase 5 done: ~880 hypotheses, 0 edges; decision point on next direction)._
