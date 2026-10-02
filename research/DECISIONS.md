@@ -17,6 +17,19 @@ timestamped official feeds (FRED/EIA/economic-calendar), log source+pull-time, e
 DAILY_SIGNALS briefing line per signal (news tag + invalidating scheduled event). Applies across all
 future phases alongside the technical work. _Reversible: no (standing directive) — mechanics tunable._
 
+### 2026-10-02 · D-023 · CoinGlass free tier is paid-gated → commit Bybit funding instead (resolves B-004)
+D-022's CoinGlass plan failed live: the historical funding-rate endpoint returns `401 "Upgrade plan"`
+on the free tier (free docs list the interval but the endpoint itself needs a paid plan). So no $0
+funding API is reliably US-reachable (Bybit/Binance geo-block US Actions; OKX uncertain; CoinGlass
+paid). **Resolution:** funding is tiny (8h × 2y × 17 coins = 208 KB), so fetch it once from a non-US
+box via Bybit and COMMIT it to the repo at `research/altdata_committed/funding/{SYM}.csv.gz` (17/18
+coins; MATIC not a Bybit perp). `cryptoalt_refresh.py` now joins committed funding to the TD crypto
+bars from the lake — no network, no key, no geo-block in CI. Overrides D-006 for this one small,
+static dataset (funding history doesn't change retroactively, so committing is safe). The
+COINGLASS_API_KEY secret is now unused (the user may delete it). Validated end-to-end locally: funding
+families produce real base-gate PASSes (e.g. fund_rev 4h-intraday-short Sharpe 0.20, +0.11R at 2× cost);
+basis deferred (NaN). _Reversible: yes._
+
 ### 2026-10-02 · D-022 · Crypto funding via CoinGlass free API (resolves B-004 geo-block)
 Bybit/Binance geo-block US GitHub Actions (B-004), so crypto funding for Phase 8 comes from CoinGlass
 — a US-accessible data VENDOR (not an exchange), free "Hobbyist" tier, historical funding-rate OHLC at

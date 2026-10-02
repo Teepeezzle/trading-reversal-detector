@@ -51,12 +51,9 @@ jobs:
           restore-keys: |
             research-lake-
 
-      - name: Crypto alt refresh
-        env:
-          COINGLASS_API_KEY: ${{ secrets.COINGLASS_API_KEY }}
+      - name: Crypto alt refresh (committed funding + TD bars; no network/key)
         run: |
           python research/jobs/cryptoalt_refresh.py \
-            --years "${{ github.event.inputs.years || '2' }}" \
             --symbols "${{ github.event.inputs.symbols || 'all' }}"
 
       - name: Upload alt-lake artifact
