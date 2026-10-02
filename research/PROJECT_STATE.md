@@ -11,9 +11,11 @@ Success = documented edge net of costs + a daily top-5 actionable list.
 T-303 phase=6 (N=132) → **0 candidates** (best crypto 15m momentum, Sharpe 0.078, p=0.22, DSR 0.002).
 **PROGRAM RESULT: ~1,200 hypotheses across Phases 3–6, every structurally-distinct approach, 0
 deployable edges.** No robust short-horizon technical edge exists under the $0/free-data constraints
-with this gauntlet. Holdout NEVER touched. NEXT = **T-405 decision (user's call): data/budget** — the
-only remaining lever (deeper intraday / survivorship-aware / more instruments / alt data). I can scope
-providers + costs on request. The framework + ~1,200-row registry + this null result are the deliverable.
+with this gauntlet. Holdout NEVER touched. NEXT = **T-405 SCOPED → see DATA_OPTIONS.md.** Key finding: the depth limiter was the Twelve-Data-FREE
+cap, not free data in general. The search can reopen for ~**$0**: (A) Dukascopy FREE 15–20y 5m/15m
+FX/metals/oil → re-run the gauntlet with real statistical power (the thing every near-miss lacked);
+(B) Binance + CoinGlass/CoinAPI free → deep crypto OHLCV + NEW alt-data families (funding/OI/basis);
+(C) optional Databento PAYG (~$ single digits) for true metals/oil futures. Awaiting user go on A/B.
 Next: run research-combo-sweep in CI → merge results → research-robustness `phase=4`; then Phase 5.
 
 ---
