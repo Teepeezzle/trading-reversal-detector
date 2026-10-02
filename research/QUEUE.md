@@ -42,10 +42,14 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
 - ✅ **T-403 / Phase 5** NEW factor families RUN in CI (D-016/D-017): 540 hypotheses → 58 base-PASS →
   T-303 phase=5 (N=288) → **0 candidates**. Best = `bb_breakout` FX 4h swing (Sharpe 0.10, p=0.11) —
   far from the bar. Single-factor family space exhausted; ~880 hypotheses across Phases 3–5, 0 edges.
-- ⬜ **T-404 (DECISION POINT — user's call)** Two remaining levers: (a) **cross-sectional ranking**
-  (relative strength across instruments; needs a cross-instrument engine change) — the last
-  structurally-new $0 idea; (b) **reconsider the $0 data constraint** (D-003) — scope paid data for
-  deeper intraday / survivorship-aware / broader universe. Or (c) bank "no edge found" and stop.
+- 🔵 **T-404 / Phase 6** cross-sectional ranking (user chose this). ENGINE BUILT + validated locally:
+  `research/src/xsectional.py` — rank a class's instruments by trailing momentum, hold long top-k /
+  short bottom-k for H bars, NON-overlapping rebalances (independent obs), no-lookahead (rank@t, enter
+  t+1 open, exit t+1+H open), net of turnover+swap; reuses bt.stats/split + mtc. Local crypto (9-coin)
+  = weak/marginal (long-only tiny PASS, Sharpe ~0.04–0.10). **REMAINING:** (1) `jobs/xs_sweep.py` grid
+  (class × L × H × k × mode) → phase-6 rows; (2) judge via a phase-6 path in robustness.py (xs
+  re-eval for 2×-cost + L/H sensitivity + MTC); (3) `research-xsweep` workflow; (4) run in CI on the
+  widened 17-coin lake → merge → gauntlet. Then (b) budget reconsideration if this too is empty.
 - ⬜ **T-501** 60/20/20 split + walk-forward; holdout touched ONCE at the end.
 - ⬜ **T-601** 4-week forward paper test; log every signal taken or not.
 - ⬜ **T-701** Scanner + signal spec + daily morning routine.
