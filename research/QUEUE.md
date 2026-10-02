@@ -25,14 +25,15 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
   Validated on real lake: FX pooled 91–279 trades; 0 PASS (naive factors negative — expected).
 - ✅ **T-302** `research-sweep` nightly workflow: restores lake cache, bounded batch, lands registry
   as an auto PR (needs "Actions can create PRs" repo setting — noted in the workflow).
-- 🔵 **T-303** Robustness gauntlet BUILT (`jobs/robustness.py` + `src/mtc.py` + `research-robustness`
-  workflow): 2× cost + parameter sensitivity + Bonferroni + Deflated Sharpe, promotes survivors →
-  CANDIDATES.md, full report → ROBUSTNESS.md (D-012). Validated on a synthetic PASS (correctly
-  rejected: dies at 2× cost, p=0.38, DSR=0.05). **Waiting on the sweep to populate the registry**,
-  then dispatch `research-robustness` to run it for real.
+- ✅ **T-303** Robustness gauntlet RUN end-to-end in CI. Full grid swept (220 hypotheses → 17
+  base-gate PASS), then 2× cost + sensitivity + Bonferroni + Deflated Sharpe (N=78 valid tests,
+  SR*=0.33). **0 candidates** — no single factor cleared MTC. Leads logged in PROJECT_STATE +
+  ROBUSTNESS.md. (`jobs/robustness.py` + `src/mtc.py` + `research-robustness` workflow; D-012.)
 
-## Phase 4+ (queued, not started)
-- ⬜ **T-401** Combine Phase-3 survivors across regime buckets (trend/range, vol hi/lo, risk on/off).
+## Phase 4+ (NEXT — Phase 3 left 0 standalone candidates, only leads)
+- ⬜ **T-401** Add a confirming factor / regime gate to the Phase-3 LEADS (oil `rsi_rev(n=7)` &
+  `zscore_rev` mean-reversion first; also crypto/FX donch + z-score). Gates to try: ADX trend/range,
+  SMA200-slope, ATR% vol hi/lo, session. Register combos (phase 4), re-run T-303. See PROJECT_STATE.
 - ⬜ **T-501** 60/20/20 split + walk-forward; holdout touched ONCE at the end.
 - ⬜ **T-601** 4-week forward paper test; log every signal taken or not.
 - ⬜ **T-701** Scanner + signal spec + daily morning routine.
