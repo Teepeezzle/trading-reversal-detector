@@ -1,0 +1,29 @@
+name: Research — newsdata.io probe (read-only)
+
+# One-off read-only probe: confirm NEWSDATAIO_API_KEY works and show what the free tier returns
+# (latest ~48h headlines; no archive/sentiment on free). Stores nothing, opens no PR.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Probe newsdata.io
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: Install requests
+        run: pip install requests
+      - name: Probe
+        env:
+          NEWSDATAIO_API_KEY: ${{ secrets.NEWSDATAIO_API_KEY }}
+        run: python research/jobs/newsdata_probe.py
