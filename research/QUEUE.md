@@ -68,11 +68,10 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
   string" — the `FRED_API_KEY` secret is malformed. Re-add a valid key, re-dispatch. Code is correct.
 - ✅ **N-2** EIA fetcher DONE: CI landed **195 weekly crude-inventory releases** (2023→now) with w/w
   surprise, Wed-10:30-ET UTC stamps → `research/altdata_committed/news/eia.csv.gz`. Validated.
-- ⛔ **N-3** Economic-calendar fetcher BUILT on **FMP** (`fetch_fmp` in news_refresh): US macro events
-  with TRUE consensus surprise (actual − estimate), forward+historical. **Finnhub's calendar is
-  PREMIUM-gated** (verified — the FINNHUB_API_KEY can't reach it), so N-3 uses FMP's free Basic tier.
-  **Needs `FMP_API_KEY` secret (user action).** newsfactor now filters news by instrument_class so FMP
-  events flow into the study automatically. Then re-run news-refresh → news-study for consensus surprises.
+- ⛔/accepted **N-3** Consensus-surprise calendar is PAYWALLED at $0 everywhere (D-026): CoinGlass 401,
+  Finnhub premium, FMP **402 Restricted Endpoint**. `fetch_fmp` built + exits-clean (lights up on a paid
+  FMP plan). **Decision: use the free actual-vs-PRIOR surprise proxy** (FRED/EIA), already studied in N-5.
+  True consensus = a budget decision (D-003), not $0. FMP/FINNHUB keys unused — may delete.
 - ✅ **N-4** `src/news.py` BUILT + validated: canonical schema, `latest_asof` no-lookahead join
   (`first_available_at <= bar_open`), `minutes_to_next` 30-min pre-release gate. + `research-news-refresh` workflow.
 - ✅ **N-5** DONE (D-025): ran in CI on deep FX/metals 1h/4h + macro news (FRED 235 + EIA 195). 380

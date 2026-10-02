@@ -38,12 +38,13 @@ MTC family); N-6 (DAILY_SIGNALS briefing line). **N-5 DONE (D-025):** ran in CI 
 1h/4h + macro news (FRED 235 + EIA 195). 380 base-vs-gated cells → 11 improve / 131 just-cut / 48 hurt
 / 175 thin; **0 clear MTC**. News gates mostly cut trades; the surprise-SIGN split + quiet regime are
 the real (coherent, non-significant) effects → news confirmed as REGIME TAG / context, not a standalone
-edge. FRED key fixed (B-005). **N-6 DONE** (`jobs/daily_brief.py` — forward event-risk calendar + per-signal
-briefing, wired into news-refresh). **N-3 BUILT on FMP** (`fetch_fmp` — true consensus surprise
-actual−estimate): Finnhub's economic calendar is PREMIUM-gated (the FINNHUB_API_KEY can't reach it),
-so N-3 uses FMP's free Basic tier → **needs `FMP_API_KEY` secret**. newsfactor now filters by
-instrument_class so FMP events flow in automatically. **To get consensus surprises: add FMP_API_KEY →
-re-dispatch research-news-refresh → research-news-study.** News = CONTEXT & FILTER only.
+edge. **NEWS LAYER COMPLETE at $0 (D-026).** N-4 schema + no-lookahead join; N-1 FRED (235 events) + N-2 EIA
+(195) live; N-5 gate/regime-tag study (news mostly cuts trades; surprise-SIGN tilt coherent, 0 MTC);
+N-6 daily briefing + forward event-risk calendar. **N-3 (true consensus surprise) is PAYWALLED at $0
+everywhere** — CoinGlass 401, Finnhub premium, FMP 402 Restricted; `fetch_fmp` stays (lights up on a
+paid plan). Free reality = actual-vs-PRIOR surprise proxy (already studied, N-5). FMP/FINNHUB keys
+unused (may delete). News = CONTEXT & FILTER, confirmed as a regime tag, not a standalone edge.
+Holdout untouched. True consensus surprise = a future budget decision (D-003).
 
 **NEW STANDING RULE (D-021, spec: NEWS_LAYER.md):** a fundamental/news layer — CONTEXT & FILTER, never
 a standalone signal; strict UTC timestamping/no-lookahead; forward event calendar (30-min pre-release
@@ -137,4 +138,4 @@ Phase 6 (4-week forward paper) → Phase 7 (deploy). Keep pooling per class (D-0
 - How deep is Twelve Data free 15m/1h history in practice? (measure, record).
 - Crypto alt universe + any delisting handling we can approximate.
 
-_Last updated: 2026-10-02 (session 2 — N-6 done; N-3 built on FMP (Finnhub calendar premium-gated), needs FMP_API_KEY)._
+_Last updated: 2026-10-02 (session 2 — news layer complete at $0; consensus calendar paywalled everywhere (D-026); proxy stands)._

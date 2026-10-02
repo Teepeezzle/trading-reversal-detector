@@ -17,6 +17,20 @@ timestamped official feeds (FRED/EIA/economic-calendar), log source+pull-time, e
 DAILY_SIGNALS briefing line per signal (news tag + invalidating scheduled event). Applies across all
 future phases alongside the technical work. _Reversible: no (standing directive) — mechanics tunable._
 
+### 2026-10-02 · D-026 · Consensus-surprise calendar is paywalled at $0 everywhere → use the actual-vs-prior proxy
+N-3 aimed for a TRUE consensus surprise (actual − forecast). All three free candidates gate it:
+CoinGlass funding = 401 "Upgrade plan"; Finnhub `/calendar/economic` = premium ("You don't have
+access"); FMP `/stable/economic-calendar` = **402 "Restricted Endpoint … upgrade your plan"**. So
+consensus/forecast data is a paywalled product at the free tier across providers — confirmed, not
+assumed. **Decision:** keep the free **actual-vs-PRIOR** surprise proxy (FRED beat/miss vs the previous
+print; EIA week-over-week build/draw), which N-5 already studied and which drove the surprise-SIGN
+tilt (D-025). The FMP/FINNHUB keys are unused for this (both gated) — the user may delete them. A true
+consensus surprise would need a paid calendar (Trading Economics / FMP paid / etc.) — a budget decision
+(D-003), not a $0 item. The `fetch_fmp` code stays (exits-clean, logs a blocker) so it lights up if a
+paid FMP plan is ever added. News layer otherwise COMPLETE: schema+no-lookahead join (N-4), FRED (N-1)
++ EIA (N-2) live, gate/regime-tag study (N-5), daily briefing (N-6). News = context/filter, confirmed
+useful as a regime tag, not a standalone edge. Holdout untouched. _Reversible: yes (paid data reopens N-3)._
+
 ### 2026-10-02 · D-025 · Phase 9 N-5 verdict: news gates mostly cut trades; surprise-sign is the real effect, but 0 clear MTC
 Ran the news-gate study (D-021 §6) on the deep FX/metals 1h/4h lake + FX/metals/oil macro news (FRED
 235 events + EIA 195). 380 base-vs-gated cells → **11 improve expectancy, 131 just-cut-trades, 48 hurt,
