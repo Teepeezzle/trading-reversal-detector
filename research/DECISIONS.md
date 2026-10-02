@@ -17,6 +17,18 @@ timestamped official feeds (FRED/EIA/economic-calendar), log source+pull-time, e
 DAILY_SIGNALS briefing line per signal (news tag + invalidating scheduled event). Applies across all
 future phases alongside the technical work. _Reversible: no (standing directive) — mechanics tunable._
 
+### 2026-10-02 · D-024 · Phase 8 Step B verdict: crypto funding families also yield 0 candidates
+Ran the alt-data sweep on the full 17-coin / 2y committed-funding lake: 60 hypotheses (fund_rev,
+fund_mom, basis_rev × params × TF × horizon) → 2 base-gate PASS → T-303 `--phase 8` (N=26, Bonferroni
+p<1.9e-3, SR*=0.21) → **0 candidates**. The best, `fund_rev` short on crypto 4h-intraday (fade crowded
+longs), is genuinely coherent — val Sharpe 0.134, +0.107R, survives 2× cost (+0.06R, PF 1.22), 100%
+parameter-robust, decisively beats random — but fails the 26-trial MTC (p=0.035 vs 0.0019; DSR 0.15).
+basis_rev was empty (basis deferred, NaN). So funding/positioning signals behave like everything else:
+a real-looking tilt that doesn't survive honest multiple-testing correction. **Program tally across
+Phases 3–8 (price / regime-gated / cross-sectional / deep-data / funding): ~1,740 hypotheses, 0
+deployable edges.** Next per the standing rule (D-021): build the news/fundamental layer (FRED/EIA keys
+are in). A perp-price source would let basis_rev run later. Holdout still untouched. _Reversible: yes._
+
 ### 2026-10-02 · D-023 · CoinGlass free tier is paid-gated → commit Bybit funding instead (resolves B-004)
 D-022's CoinGlass plan failed live: the historical funding-rate endpoint returns `401 "Upgrade plan"`
 on the free tier (free docs list the interval but the endpoint itself needs a paid plan). So no $0

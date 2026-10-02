@@ -59,7 +59,9 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
   was fetched via Bybit from a non-US box and COMMITTED to `research/altdata_committed/funding/` (17/18
   coins; MATIC n/a). `cryptoalt_refresh.py` joins committed funding to TD crypto bars — no key/network/
   geo issue. Validated end-to-end locally (fund_rev 4h-intraday-short Sharpe 0.20, +0.11R @2x, 0 survivors
-  on 9 local coins). basis deferred. **READY: dispatch research-cryptoalt-refresh → alt_sweep → robustness phase=8.**
+  on 9 local coins). basis deferred. ✅ **DONE (D-024):** full 17-coin/2y run → 60 hypotheses → 2 base-PASS
+  → T-303 phase=8 (N=26) → **0 candidates**. Best `fund_rev` short 4h-intraday (Sharpe 0.13, +0.06R @2x,
+  param-robust) fails MTC (p=0.035 vs 0.0019, DSR 0.15). Funding signals behave like everything else.
 
 ## News / fundamental layer (STANDING RULE D-021 — spec: NEWS_LAYER.md). CONTEXT & FILTER, never standalone.
 - ⬜ **N-1** FRED fetcher → US macro release dates + surprises (CPI/PCE/GDP/NFP/rates); `FRED_API_KEY` secret. FX/metals.
