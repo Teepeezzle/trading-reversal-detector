@@ -78,9 +78,10 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
   base-vs-gated cells → 11 improve / 131 just-cut-trades / 48 hurt / 175 thin; **0 clear MTC** (N=196).
   News gates mostly cut trades; surprise-SIGN split + quiet regime are the real (coherent, non-significant)
   effects. News confirmed as REGIME TAG / context, not a standalone edge. Report: NEWS_STUDY.md.
-- ✅ **N-6** DONE: `jobs/daily_brief.py` — forward event-risk calendar (projected from release cadence)
-  + no-trades briefing + per-signal `brief_for_signal()` (news tag + next event risk) + the 30-min
-  pre-release rule (§3/§9). Wired as a step in research-news-refresh. Validated on the live news table.
+- ✅ **N-6** DONE: `jobs/daily_brief.py` — event-risk calendar now uses FXMacroData's FREE `/calendar/usd`
+  OFFICIAL forward schedule (exact release datetimes, ⚠high on tier-1, no key) + cadence/EIA fallback;
+  no-trades briefing; per-signal `brief_for_signal()`; 30-min pre-release rule (§3/§9). D-029. Validated live.
+  (FXMacroData free actuals are ~90d-capped + forecasts plan-gated → NOT a historical/consensus source.)
 - ⬜ **N-7 (optional)** newsdata.io FORWARD collector (D-027): headlines-only, free=~48h/no archive/no
   sentiment (tested live) — can't backtest, but a scheduled collector would store each run's latest
   finance/crypto headlines (timestamped) to self-build an archive, feeding the briefing + a future

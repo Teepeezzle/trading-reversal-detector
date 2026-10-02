@@ -17,6 +17,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import requests
+
+FXMACRO_CAL = "https://api.fxmacrodata.com/v1/calendar/usd"   # free, no key — official forward schedule
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -50,6 +53,48 @@ def forward_calendar(news: pd.DataFrame, asof: pd.Timestamp, horizon_days: int =
     return within.sort_values("next_expected").reset_index(drop=True)
 
 
+def fxmacro_forward_calendar(asof: pd.Timestamp, horizon_days: int = 10) -> pd.DataFrame:
+    """OFFICIAL forward US macro release schedule with exact datetimes (FXMacroData free, no key).
+    Returns high-importance events within the horizon. Empty on any failure (graceful fallback)."""
+    try:
+        r = requests.get(FXMACRO_CAL, timeout=20, headers={"User-Agent": "Mozilla/5.0 (research)"})
+        data = (r.json() or {}).get("data") or []
+    except Exception:
+        return pd.DataFrame()
+    rows = []
+    for a in data:
+        ts = a.get("announcement_datetime")
+        if not ts:
+            continue
+        t = pd.to_datetime(ts, unit="s", utc=True).tz_localize(None)
+        if t < asof or t > asof + pd.Timedelta(days=horizon_days):
+            continue
+        imp = str(a.get("event_importance", "")).lower()
+        if imp not in ("high", "medium"):                     # skip tier-3 noise
+            continue
+        high = imp == "high" or bool(a.get("top_tier_for_currency"))
+        rows.append(dict(name=str(a.get("release") or a.get("name")), instrument_class="forex_macro",
+                         next_expected=t, cadence_days=np.nan, source="official", high=high))
+    df = pd.DataFrame(rows)
+    return df.sort_values("next_expected").reset_index(drop=True) if not df.empty else df
+
+
+def combined_calendar(news: pd.DataFrame, asof: pd.Timestamp, horizon_days: int = 10) -> pd.DataFrame:
+    """Official FXMacroData forward schedule for macro (exact times) + cadence-projected for the rest
+    (e.g. EIA oil). Official rows win on name overlap."""
+    cadence = forward_calendar(news, asof, horizon_days)
+    if not cadence.empty:
+        cadence["source"] = "projected"
+        cadence["high"] = cadence["name"].isin(HIGH_IMPACT)
+    official = fxmacro_forward_calendar(asof, horizon_days)
+    if official.empty:
+        return cadence
+    cols = ["name", "instrument_class", "next_expected", "source", "high"]
+    keep = cadence[cadence["instrument_class"] != "forex_macro"] if not cadence.empty else cadence
+    out = pd.concat([official[cols], keep[cols]], ignore_index=True) if not keep.empty else official[cols]
+    return out.sort_values("next_expected").reset_index(drop=True)
+
+
 def brief_for_signal(signal: dict, news: pd.DataFrame, asof: pd.Timestamp) -> str:
     """One-line news context + next invalidating event for a live signal (D-021 §9)."""
     aclass = signal.get("asset_class", "")
@@ -72,19 +117,22 @@ def brief_for_signal(signal: dict, news: pd.DataFrame, asof: pd.Timestamp) -> st
 
 
 def render(news: pd.DataFrame, asof: pd.Timestamp) -> str:
-    cal = forward_calendar(news, asof)
+    cal = combined_calendar(news, asof, 14)
+    official_n = int((cal["source"] == "official").sum()) if not cal.empty else 0
     lines = [f"## Briefing {asof.date()}",
              "**No trades today.** No validated candidate exists yet (Phases 3–9 found 0 MTC-significant "
              "edges); an empty list is the honest output. The event-risk calendar below is live.", "",
-             "### Event-risk calendar (next 10 days, projected from release cadence)"]
+             f"### Event-risk calendar (next 14 days — {official_n} official FXMacroData times, rest projected)"]
     if cal.empty:
-        lines.append("_No high-impact events projected (news table empty or too short)._")
+        lines.append("_No high-impact events (news table empty / source offline)._")
     else:
-        lines.append("| event | class | next (approx, UTC) | cadence (d) |")
-        lines.append("|---|---|---|--:|")
+        lines.append("| event | class | next (UTC) | source |")
+        lines.append("|---|---|---|---|")
         for _, e in cal.iterrows():
-            flag = " ⚠high" if e["name"] in HIGH_IMPACT else ""
-            lines.append(f"| {e['name']}{flag} | {e['instrument_class']} | {e['next_expected'].strftime('%Y-%m-%d %H:%M')} | {e['cadence_days']} |")
+            off = (e.get("source") == "official")
+            flag = " ⚠high" if bool(e.get("high")) else ""
+            when = e["next_expected"].strftime("%Y-%m-%d %H:%M") + ("" if off else " ~")
+            lines.append(f"| {e['name']}{flag} | {e['instrument_class']} | {when} | {e.get('source','projected')} |")
     lines += ["", "_Per-signal briefing (once candidates are live): `news: <tag>; next event risk: "
               "<event ~date>` — see brief_for_signal(). No new intraday entry within 30 min of a ⚠high "
               "event; no holding a fresh position through one without a logged reason (D-021 §3)._"]

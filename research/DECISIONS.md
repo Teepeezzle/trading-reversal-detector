@@ -31,6 +31,20 @@ announcements for sharper `announcement_datetime` + vintage (no key); (3) a one-
 is possible via FXMacroData's 14-day trial IF it's card-free and serves history — commit once, like the
 Bybit funding — a user decision. True ongoing consensus = budget (D-003). _Reversible: yes._
 
+### 2026-10-02 · D-029 · FXMacroData free = ~90d-capped data + plan-gated forecasts; its free FORWARD calendar now powers N-6
+Follow-up to D-028 after deeper live testing. FXMacroData free `/announcements` is capped to a ~90-day
+trailing window (start_date/end_date are ignored on free; earliest_available ≈ 2 months back), and
+`/predictions` (forecast values) are plan-gated. So "do both": **#1 (historical actuals via FXMacroData)
+and #2 (consensus harvest) are NOT viable at $0** — free can't backfill multi-year, a 14-day trial
+wouldn't either, and forecasts need a paid plan. FRED stays the free historical macro source; consensus
+remains a budget item (D-003, D-026). **BUT the free `/v1/calendar/usd` forward schedule IS fully usable
+(no key): 100+ official upcoming US releases with exact `announcement_datetime` + `event_importance`/
+`market_tier`/`top_tier_for_currency` out to 2027.** Wired into N-6 (`daily_brief.fxmacro_forward_calendar`
+/ `combined_calendar`): the event-risk calendar now shows OFFICIAL exact release times for macro (⚠high
+on tier-1), with graceful fallback to cadence-projection (and EIA-oil) if offline. This sharpens the
+§3 30-min pre-release gate. newsdata/FMP/Finnhub/FXMacroData = 5 providers; consensus paid at all.
+_Reversible: yes._
+
 ### 2026-10-02 · D-027 · newsdata.io = live headline feed only (not economic data); forward-collector role
 Tested live (NEWSDATAIO_API_KEY, read-only probe). newsdata.io is a HEADLINE/ARTICLE aggregator, not
 an economic-data source: it returns title/description/content/pubDate/country/category/keywords, with

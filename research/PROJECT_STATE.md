@@ -46,8 +46,11 @@ paid plan). Free reality = actual-vs-PRIOR surprise proxy (already studied, N-5)
 unused (may delete). News = CONTEXT & FILTER, confirmed as a regime tag, not a standalone edge.
 Holdout untouched. True consensus surprise = a future budget decision (D-003).
 **newsdata.io (tested, D-027):** headline aggregator, not economic data — free = ~48h live, no archive,
-sentiment paid. Does NOT fill FRED/EIA/consensus or enable historical backtest. Fit = optional FORWARD
-headline collector (N-7) for the briefing + Phase-6 paper (self-built archive over time). Key works.
+sentiment paid. Fit = optional FORWARD headline collector (N-7). **FXMacroData (tested, D-028/D-029):**
+free data is ~90d-capped + forecasts plan-gated → NOT a historical/consensus source (so "do both" #1/#2
+not viable at $0; FRED stays historical macro; consensus = budget D-003). BUT its FREE `/calendar/usd`
+official forward schedule (exact times, no key) now powers N-6's event-risk calendar. CONSENSUS CONFIRMED
+PAID AT 5/5 providers (CoinGlass, Finnhub, FMP, FXMacroData, + newsdata sentiment).
 
 **NEW STANDING RULE (D-021, spec: NEWS_LAYER.md):** a fundamental/news layer — CONTEXT & FILTER, never
 a standalone signal; strict UTC timestamping/no-lookahead; forward event calendar (30-min pre-release
@@ -141,4 +144,4 @@ Phase 6 (4-week forward paper) → Phase 7 (deploy). Keep pooling per class (D-0
 - How deep is Twelve Data free 15m/1h history in practice? (measure, record).
 - Crypto alt universe + any delisting handling we can approximate.
 
-_Last updated: 2026-10-02 (session 2 — newsdata.io tested: headlines-only/forward (D-027); news layer complete at $0)._
+_Last updated: 2026-10-02 (session 2 — FXMacroData free forward calendar wired into N-6 (D-029); consensus paid at 5/5 providers)._
