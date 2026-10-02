@@ -51,6 +51,10 @@ free data is ~90d-capped + forecasts plan-gated → NOT a historical/consensus s
 not viable at $0; FRED stays historical macro; consensus = budget D-003). BUT its FREE `/calendar/usd`
 official forward schedule (exact times, no key) now powers N-6's event-risk calendar. CONSENSUS CONFIRMED
 PAID AT 5/5 providers (CoinGlass, Finnhub, FMP, FXMacroData, + newsdata sentiment).
+**N-7 BUILT:** newsdata.io forward headline collector (`src/newsfeed.py` + `jobs/newsdata_collect.py` +
+`research-newsdata-collect` daily cron → PRs `altdata_committed/news/headlines.csv.gz`; daily_brief shows
+48h headline flow). Forward-only, no backfill/sentiment; seeds a future keyword event-flow factor (N-8).
+Dispatch once to seed + confirm the NEWSDATAIO_API_KEY live, then it accumulates nightly.
 
 **NEW STANDING RULE (D-021, spec: NEWS_LAYER.md):** a fundamental/news layer — CONTEXT & FILTER, never
 a standalone signal; strict UTC timestamping/no-lookahead; forward event calendar (30-min pre-release
@@ -144,4 +148,4 @@ Phase 6 (4-week forward paper) → Phase 7 (deploy). Keep pooling per class (D-0
 - How deep is Twelve Data free 15m/1h history in practice? (measure, record).
 - Crypto alt universe + any delisting handling we can approximate.
 
-_Last updated: 2026-10-02 (session 2 — FXMacroData free forward calendar wired into N-6 (D-029); consensus paid at 5/5 providers)._
+_Last updated: 2026-10-02 (session 2 — N-7 newsdata forward headline collector built; dispatch to seed)._

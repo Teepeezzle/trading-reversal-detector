@@ -8,7 +8,7 @@ exists, this stays empty by design.
 ## Briefing 2026-10-02
 **No trades today.** No validated candidate exists yet (Phases 3–9 found 0 MTC-significant edges); an empty list is the honest output. The event-risk calendar below is live.
 
-### Event-risk calendar (next 10 days — 7 official FXMacroData times, rest projected)
+### Event-risk calendar (next 14 days — 7 official FXMacroData times, rest projected)
 | event | class | next (UTC) | source |
 |---|---|---|---|
 | trade_balance | forex_macro | 2026-10-06 12:30 | official |
