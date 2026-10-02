@@ -4,6 +4,20 @@ Append-only. Newest at top. Each entry: date · decision · why · reversible?
 
 ---
 
+### 2026-10-02 · D-020 · Phase 7 Step A verdict: DEEP data refutes the "under-powered" hypothesis
+Built a free deep lake (HistData 1-min → 15m/1h/4h/1D, ~21 months, FX majors/crosses + XAU/XAG) and
+re-ran the phase-3 + phase-5 single-factor grids on it (480 configs, phase 7 / id `|deep`). Depth
+jumped 5–8× (15m ~5000→~43000 bars/instrument; pooled 1h rules fire 475–535 trades). Result: 480 →
+19 base-gate PASS → T-303 `--phase 7` (N=230, Bonferroni p<2.2e-4, SR*=0.30) → **0 candidates**. The
+telling detail: the high-n rules regressed to **Sharpe ≈0.01 (p≈0.42)** — more data tightened the
+estimate around **zero**, it did not expose a hidden edge. The earlier promising Sharpes (e.g. oil
+rsi_rev 0.24 on ~120 trades) were **small-sample inflation**. This rules OUT "the edges were real but
+under-sampled": with real statistical power, single-factor technical rules on FX/metals have no net-of-
+cost edge. Strengthens D-017/D-019. (Fetcher got monthly data for current+prior year ≈21mo; older
+years need HistData's yearly-zip endpoint — minor future enhancement, didn't change the verdict.)
+Oil not on HistData → unchanged. Holdout untouched. Next: Step B (crypto alt-data) per "Both, A first".
+_Reversible: yes._
+
 ### 2026-10-02 · D-019 · Phase 6 verdict + PROGRAM conclusion: $0 idea space exhausted, 0 edges
 Full cross-sectional sweep ran in CI on the widened lake: 320 configs → 25 base-gate PASS → T-303
 `--phase 6` (N=132 valid tests, Bonferroni p<3.8e-4, SR*=0.36) → **0 candidates**. Best was crypto
