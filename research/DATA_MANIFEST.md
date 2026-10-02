@@ -46,6 +46,9 @@ WTI/USD=`CL=F` (1h to 2024, ~2.3y), BRENT/USD=`BZ=F`; 4h resampled from 1h; yfin
 Deeper 15m history would require paginating (end_date walk) = extra calls; deferred under $0.
 
 ## Known limitations
+- **Spot vs futures mix (D-010):** gold = **spot** (TD XAU/USD); silver + oil = **futures**
+  (yfinance SI=F/CL=F/BZ=F). ~0.46% basis vs spot — fine for short-horizon technical signals;
+  model roll/financing per instrument in cost accounting.
 - **No crypto volume on Twelve Data free** (confirmed first run 2026-10-01): crypto quotes
   omit the `volume` column → volume-based indicators (OBV, volume-spike) are **unavailable for
   crypto** on this tier. Volume features are FX/metals/oil-only unless sourced elsewhere.

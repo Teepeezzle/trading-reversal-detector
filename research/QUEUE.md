@@ -8,21 +8,24 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
 
 ---
 
-## Phase 1 — data foundation
-- ⛔ **T-101** Build `/research/data` lake for the full universe (15m/1h/4h/1D).
-  _Blocked on B-001 (Twelve Data key) + B-002 (merge to main)._ → DATA_MANIFEST.md
-- ⬜ **T-102** Reconcile Twelve Data vs yfinance on EUR/USD 1h + BTC/USD 1h; record tolerance. → DECISIONS.md
-- ⬜ **T-103** Measure & record real free-tier history depth per timeframe. → DATA_MANIFEST.md
+## Phase 1 — data foundation ✅ COMPLETE
+- ✅ **T-101** Lake built: 27 instruments × 4 TFs (TD FX/gold/crypto + yfinance silver/oil). → DATA_MANIFEST.md
+- ✅ **T-102** Reconcile TD vs yfinance: FX & crypto PASS; gold = spot/futures basis (D-010). → RECONCILE.md
+- ✅ **T-103** Depths recorded: 15m ~52d(TD)/~60d(yf) binding; 1h/4h/1D deep. → DATA_MANIFEST.md
 
 ## Phase 2 — indicator survey (portable functions only)
-- ⬜ **T-201** Catalogue primitives: trend (EMA/SMA/ADX), momentum (RSI/MACD/ROC/Stoch),
-  volatility (ATR/BB/Keltner), volume (OBV/vol-spike), mean-reversion (z-score/VWAP dev),
-  structure (Donchian/pivots/HH-LL), session/time-of-day. For each: what it measures,
-  failure modes, parameter space. → `research/src/indicators.py` + registry notes.
+- ✅ **T-201** Catalogue primitives + what each measures / failure modes / param space.
+  → PHASE2_INDICATORS.md + `research/src/indicators.py` (portable). Volume = FX/metals/oil only (D-007).
+  Macro-event/sentiment = Bigdata.com, MCP-ONLY interactive (D-009), excluded from sweeps.
 
 ## Phase 3 — single-factor testing (min 100 trades; judge on validation set)
-- ⬜ **T-301** For each primitive, fixed simple rule, both horizons, per asset class.
-  Log hitrate/expectancy/PF/maxDD/trades/avg-hold to HYPOTHESIS_REGISTRY. Discard on val.
+- ✅ **T-300** Portable backtest engine built & validated: backtest.py/costs.py/single_factor.py
+  (pooled, no-lookahead, net-of-cost, benchmarks, 60/20/20). D-011.
+- ⬜ **T-301** Build `jobs/sweep.py` — loop rules × params × classes × horizons × TFs → registry
+  (idempotent/resumable). Pool per asset class (D-011); FX = majors+crosses for ≥100 val.
+- ⬜ **T-302** `research-sweep` nightly workflow (matrix over asset classes; cache /data).
+- ⬜ **T-303** On the batch: 2× cost re-run, parameter sensitivity, multiple-testing correction
+  (Deflated Sharpe / Bonferroni); report # hypotheses tested. Candidates → CANDIDATES.md.
 
 ## Phase 4+ (queued, not started)
 - ⬜ **T-401** Combine Phase-3 survivors across regime buckets (trend/range, vol hi/lo, risk on/off).
