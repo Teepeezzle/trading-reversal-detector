@@ -17,6 +17,20 @@ timestamped official feeds (FRED/EIA/economic-calendar), log source+pull-time, e
 DAILY_SIGNALS briefing line per signal (news tag + invalidating scheduled event). Applies across all
 future phases alongside the technical work. _Reversible: no (standing directive) — mechanics tunable._
 
+### 2026-10-02 · D-028 · Consensus forecasts confirmed paid across 4 providers; FXMacroData free actuals/calendar is a timestamp upgrade
+Evaluated the user's 5-source plan (FRED, EIA, FXMacroData, CalcFi, FMP). Tested FXMacroData live
+(no key): its free USD endpoints serve the release CALENDAR (with precise `announcement_datetime` +
+`point_in_time_safe`/vintage flags — better timestamping than our FRED fetcher) and ACTUAL values
+(`/v1/announcements/usd/{indicator}`, official BLS/BEA), but **forecast values are plan-gated**
+("Forecast values require a plan; 14-day trial"). So consensus/forecast is now confirmed PAID at
+**4/4** providers (CoinGlass, Finnhub, FMP 402, FXMacroData) — it is a licensed product, not a
+findable-free item. CalcFi = actuals-only CSV mirror (redundant with FRED). FMP economic calendar =
+402 on free (tested). **Conclusions:** (1) the actual-vs-PRIOR surprise proxy stays the $0 reality
+(D-026 stands); (2) OPTIONAL free upgrade — switch N-1 timing to FXMacroData's free calendar/
+announcements for sharper `announcement_datetime` + vintage (no key); (3) a one-time consensus harvest
+is possible via FXMacroData's 14-day trial IF it's card-free and serves history — commit once, like the
+Bybit funding — a user decision. True ongoing consensus = budget (D-003). _Reversible: yes._
+
 ### 2026-10-02 · D-027 · newsdata.io = live headline feed only (not economic data); forward-collector role
 Tested live (NEWSDATAIO_API_KEY, read-only probe). newsdata.io is a HEADLINE/ARTICLE aggregator, not
 an economic-data source: it returns title/description/content/pubDate/country/category/keywords, with
