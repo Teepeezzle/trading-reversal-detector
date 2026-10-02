@@ -21,8 +21,11 @@ No FX/metals single-factor edge, confirmed with real power. Oil not on HistData 
 the SL/TP engine), `jobs/cryptoalt_refresh.py` (→ data/crypto_alt/), `jobs/alt_sweep.py` (phase 8),
 robustness phase-8 path, + refresh/sweep workflows. Smoke-tested end-to-end on a 2-symbol lake.
 NEW economic signals (funding/basis), not price-only, so Step A's null doesn't predict them.
-NEXT: dispatch research-cryptoalt-refresh (2y, 17 coins) → research-alt-sweep → research-robustness
-phase=8 → the verdict. Holdout untouched.
+⛔ **BLOCKED (B-004):** the CI fetch returned 0 rows — Bybit (like Binance) geo-blocks US GitHub
+Actions IPs (the local de-risk passed only because this dev box isn't US). The Step-B code is built,
+smoke-tested, and merged; only the data source is blocked. **DECISION NEEDED (see BLOCKERS B-004):**
+(a) CoinGlass free API + a `COINGLASS_API_KEY` secret, (b) fetch the small alt lake locally and commit
+it, or (c) drop Step B. Holdout untouched.
 Next: run research-combo-sweep in CI → merge results → research-robustness `phase=4`; then Phase 5.
 
 ---
@@ -109,4 +112,4 @@ Phase 6 (4-week forward paper) → Phase 7 (deploy). Keep pooling per class (D-0
 - How deep is Twelve Data free 15m/1h history in practice? (measure, record).
 - Crypto alt universe + any delisting handling we can approximate.
 
-_Last updated: 2026-10-02 (session 2 — Phase 8 Step B built: funding/basis engine+sweep+judge+workflows, ready to run in CI)._
+_Last updated: 2026-10-02 (session 2 — Phase 8 Step B built but BLOCKED: Bybit geo-blocks US Actions; data-source decision needed)._
