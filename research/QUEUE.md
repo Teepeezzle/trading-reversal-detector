@@ -87,6 +87,17 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
   (daily cron 06:15 UTC, PRs the archive). daily_brief surfaces "headline flow (last 48h)". Forward-only
   (no backfill/sentiment); self-builds a corpus for a future keyword event-flow factor (N-8). Validated
   parse/dedup locally; **dispatch once to seed + confirm the live key**. Then it accumulates nightly.
+- 🔵 **N-8 / Phase 10** AV NEWS_SENTIMENT factor BUILT (D-030): `src/avsentiment.py` (keyed REST client +
+  relevance-weighted daily per-class aggregation), `jobs/avsentiment_refresh.py` (resumable 25/day harvester
+  → committed `altdata_committed/news/av_sentiment.csv.gz`), `src/sentfactor.py` (no-lookahead D+1 join;
+  families `sent_rev`/`sent_mom`, pooled + net-of-cost, shared SL/TP engine), `jobs/sent_sweep.py` (phase-10
+  registry rows + SENT_STUDY.md), robustness phase-10 re-eval path, + `research-avsentiment-refresh` workflow
+  (daily 05:45 UTC + dispatch, PRs the archive). First $0 backtestable timestamped sentiment (D-021's
+  programmatic-SENTIMENT use). Validated locally: all files compile; smoke test PASS (aggregate weighting +
+  bad-row drop; strict no-lookahead join; rules align; empty-archive guards); sweep against the empty archive
+  writes the honest "no data yet" report. **Next: dispatch research-avsentiment-refresh to validate
+  ALPHAVANTAGE_API_KEY + seed the backfill; it accrues ~25 windows/day. Run sent_sweep + robustness --phase 10
+  once the archive has ~1y depth.** (POLYGON_API_KEY reserved for a later macro feature; unused by N-8.)
 - ⬜ **T-501** 60/20/20 split + walk-forward; holdout touched ONCE at the end.
 - ⬜ **T-601** 4-week forward paper test; log every signal taken or not.
 - ⬜ **T-701** Scanner + signal spec + daily morning routine.

@@ -4,6 +4,27 @@ Append-only. Newest at top. Each entry: date · decision · why · reversible?
 
 ---
 
+### 2026-10-02 · D-030 · N-8 — Alpha Vantage NEWS_SENTIMENT as the first $0 backtestable sentiment source
+User added `ALPHAVANTAGE_API_KEY` (free tier) + `POLYGON_API_KEY` as secrets and directed "build N-8".
+AV `NEWS_SENTIMENT` is the first FREE source we found that is historical + UTC-timestamped + pre-scored
+(`overall_sentiment_score` ∈ [-1,1] per article, with `topics` + per-asset `ticker_sentiment` incl
+`FOREX:`/`CRYPTO:`) — i.e. the programmatic-SENTIMENT use D-021 reserves, finally available at $0.
+**Architecture** (reconciles the user's "harvest historical from MCP, real-time from the API" with the
+$0 rule): AV ships the *same* data over a keyed REST endpoint that runs inside Actions, so we harvest via
+REST (not the MCP, which can't run in CI, cf. D-001/D-009) — efficient + resumable. Free tier = 25
+req/day, so `jobs/avsentiment_refresh.py` does a bounded batch of (class, month) windows per run (oldest
+gaps first, current month always refreshed, stop on rate-limit note) and the daily `research-avsentiment-
+refresh` workflow backfills over ~days then stays current, committing a DAILY relevance-weighted per-class
+series → `altdata_committed/news/av_sentiment.csv.gz`. Topic→class: economy_macro→forex_macro (drives FX
++ metals via USD), energy_transportation→oil, blockchain→crypto. **Factor** (`src/sentfactor.py`): strict
+NO-LOOKAHEAD join (day-D sentiment usable only from D+1), families `sent_rev` (fade z-extremes) + `sent_mom`
+(follow z-momentum), one side per hypothesis, pooled + net-of-cost through the SAME SL/TP engine;
+`jobs/sent_sweep.py` emits phase-10 registry rows + SENT_STUDY.md, judged by the shared gauntlet
+(`robustness.py --phase 10`: 2× cost + sensitivity + Bonferroni + Deflated Sharpe). News stays CONTEXT/
+FILTER (D-021): sentiment is an edge only if it clears MTC. The sweep can only run meaningfully after the
+archive accrues (~1y). POLYGON_API_KEY noted for a later macro feature (inflation-expectations / deep
+prices); not used by N-8. _Reversible: yes (drop the factor + archive; key unused elsewhere)._
+
 ### 2026-10-02 · D-021 · STANDING RULE — fundamental/news layer as context & filter (never standalone)
 User-directed standing rule (full spec: research/NEWS_LAYER.md). Add a fundamental/news layer that is
 CONTEXT AND FILTER only — never a standalone entry signal. Mandatory: UTC `published_at` +

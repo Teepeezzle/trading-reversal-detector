@@ -55,6 +55,18 @@ PAID AT 5/5 providers (CoinGlass, Finnhub, FMP, FXMacroData, + newsdata sentimen
 `research-newsdata-collect` daily cron → PRs `altdata_committed/news/headlines.csv.gz`; daily_brief shows
 48h headline flow). Forward-only, no backfill/sentiment; seeds a future keyword event-flow factor (N-8).
 Dispatch once to seed + confirm the NEWSDATAIO_API_KEY live, then it accumulates nightly.
+**N-8 / PHASE 10 BUILT (D-030):** Alpha Vantage `NEWS_SENTIMENT` — the first $0 historical + UTC-timestamped
++ pre-scored sentiment feed (D-021's programmatic-SENTIMENT use, finally at $0). `src/avsentiment.py` (keyed
+REST client, runs in Actions; relevance-weighted DAILY per-class aggregation; economy_macro→forex_macro,
+energy_transportation→oil, blockchain→crypto), `jobs/avsentiment_refresh.py` (resumable 25/day harvester →
+committed `altdata_committed/news/av_sentiment.csv.gz`), `src/sentfactor.py` (strict no-lookahead D+1 join;
+families `sent_rev` fade / `sent_mom` follow; pooled, net-of-cost, shared SL/TP engine), `jobs/sent_sweep.py`
+(phase-10 registry rows + SENT_STUDY.md), robustness phase-10 re-eval path, + `research-avsentiment-refresh`
+workflow (daily 05:45 UTC + dispatch, PRs the archive). Validated locally: all files compile; N-8 smoke test
+PASS (weighting + bad-row drop, strict no-lookahead, rule alignment, empty-archive guards); sweep on the empty
+archive writes the honest "no data yet" report. Harvest uses REST not MCP (MCP can't run in CI, D-001/D-009)
+— same data, resumable. ALPHAVANTAGE_API_KEY + POLYGON_API_KEY secrets added (Polygon reserved for a later
+macro feature; unused by N-8). The factor sweep runs meaningfully only after the archive accrues (~1y).
 
 **NEW STANDING RULE (D-021, spec: NEWS_LAYER.md):** a fundamental/news layer — CONTEXT & FILTER, never
 a standalone signal; strict UTC timestamping/no-lookahead; forward event calendar (30-min pre-release
@@ -62,7 +74,10 @@ gate); GATE / REGIME-TAG / programmatic-SENTIMENT only; every news factor a regi
 by the gauntlet; API-sourced (off-peak); sources FRED/EIA/economic-calendar; DAILY_SIGNALS briefing line.
 Build = tasks N-1..N-6 (needs FRED_API_KEY, EIA_API_KEY, a calendar key). Starts after Step B unblocks.
 Holdout untouched.
-Next: run research-combo-sweep in CI → merge results → research-robustness `phase=4`; then Phase 5.
+Next: merge the N-8 chain, then dispatch `research-avsentiment-refresh` to validate ALPHAVANTAGE_API_KEY and
+seed the resumable backfill (~25 windows/day). Once `av_sentiment.csv.gz` has ~1y depth, run `sent_sweep.py`
+then `robustness.py --phase 10` for the gauntlet verdict. (Also still pending: dispatch N-7 `research-newsdata-
+collect` to seed headlines; CANDIDATES.md remains empty — 0 edges across ~1,740 hypotheses, Phases 3–8.)
 
 ---
 
