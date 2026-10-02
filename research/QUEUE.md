@@ -55,7 +55,10 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
   `jobs/cryptoalt_refresh.py` (→ data/crypto_alt/), `jobs/alt_sweep.py` (phase 8), robustness phase-8
   re-eval path, + `research-cryptoalt-refresh` / `research-alt-sweep` workflows. Smoke-tested
   end-to-end (2-symbol lake: enrich, families fire, sweep writes 60 rows, phase-8 judge routes).
-  **Next: dispatch research-cryptoalt-refresh (2y, 17 coins) → alt_sweep → research-robustness phase=8.**
+  ⛔ **BLOCKED (B-004):** CI fetch returned 0 rows — Bybit (like Binance) geo-blocks US Actions IPs
+  (local de-risk passed only because this box isn't US). Code ready; needs a data-source decision:
+  (a) CoinGlass free API + `COINGLASS_API_KEY` secret, (b) fetch locally + commit the small lake, or
+  (c) drop Step B. See BLOCKERS.md B-004.
 - ⬜ **T-501** 60/20/20 split + walk-forward; holdout touched ONCE at the end.
 - ⬜ **T-601** 4-week forward paper test; log every signal taken or not.
 - ⬜ **T-701** Scanner + signal spec + daily morning routine.
