@@ -36,6 +36,7 @@ import factors as F        # noqa: E402  (shares rule builders + load/run_one wi
 import backtest as bt      # noqa: E402
 import costs as cost_model  # noqa: E402
 import mtc                  # noqa: E402
+import xsectional as X      # noqa: E402  (phase-6 cross-sectional re-evaluation)
 
 REG = ROOT / "HYPOTHESIS_REGISTRY.csv"
 CAND = ROOT / "CANDIDATES.md"
@@ -90,6 +91,23 @@ def pooled_val(lake, aclass, rule, params, horizon, tf, cost_mult, gate=None) ->
         return pd.DataFrame({"split": [], "net_R": []})
     t = pd.concat(frames, ignore_index=True)
     return t[t.split == "val"] if "split" in t else pd.DataFrame({"split": [], "net_R": []})
+
+
+def xs_neighbors(p: dict) -> list[dict]:
+    """Parameter perturbations for a cross-sectional config: vary lookback L and hold H."""
+    L = int(p["L"]); H = int(p["H"]); out = []
+    for Ln in {max(2, L // 2), L * 2}:
+        if Ln != L:
+            q = dict(p); q["L"] = Ln; out.append(q)
+    for Hn in {max(2, H - 2), H + 5}:
+        if Hn != H:
+            q = dict(p); q["H"] = Hn; out.append(q)
+    return out
+
+
+def xs_val(lake, aclass, tf, p: dict, cost_mult) -> pd.DataFrame:
+    return X.val_trades(lake, aclass, tf, int(p["L"]), int(p["H"]),
+                        k=int(p.get("k", 2)), mode=str(p.get("mode", "ls")), cost_mult=cost_mult)
 
 
 def neighbors(params: dict) -> list[dict]:
@@ -219,26 +237,31 @@ def main() -> int:
             hz = str(row["horizon"]).strip()
             params = parse_params(row["params"])
             idv = str(row["id"])
-            label = f"{rule}({pstr(params)})" + (f" & {gate}" if gate else "")
+            is_xs = (rule == "xs_mom")                     # phase-6 cross-sectional
+            label = (f"xs_mom({pstr(params)})" if is_xs
+                     else f"{rule}({pstr(params)})" + (f" & {gate}" if gate else ""))
             lines += [f"### `{idv}`", f"- Rule: `{label}` · {aclass} · {tf} · {hz}"]
 
-            if rule not in F.RULES or (gate and gate not in F.GATES):
+            if not is_xs and (rule not in F.RULES or (gate and gate not in F.GATES)):
                 lines += [f"- SKIPPED: unknown rule/gate `{row['entry_rule']}`.", ""]
                 continue
 
+            # re-evaluate the VALIDATION trades — cross-sectional engine for xs rows, else the sweep's
+            def val_at(cost_mult, p=params):
+                return xs_val(a.lake, aclass, tf, p, cost_mult) if is_xs \
+                    else pooled_val(a.lake, aclass, rule, p, hz, tf, cost_mult, gate)
+
             # (0) baseline 1x re-derivation (sanity + raw R for DSR)
-            v1 = pooled_val(a.lake, aclass, rule, params, hz, tf, 1.0, gate)
-            s1 = bt.stats(v1)
+            v1 = val_at(1.0); s1 = bt.stats(v1)
             # (1) 2x cost
-            v2 = pooled_val(a.lake, aclass, rule, params, hz, tf, 2.0, gate)
-            s2 = bt.stats(v2)
+            v2 = val_at(2.0); s2 = bt.stats(v2)
             cost2_ok = bool(s2["n"] >= MIN_TRADES and np.isfinite(s2["expR"])
                             and s2["expR"] > 0 and np.isfinite(s2["pf"]) and s2["pf"] > 1)
-            # (2) parameter sensitivity (base params perturbed; gate held fixed)
-            nbrs = neighbors(params)
+            # (2) parameter sensitivity (perturb L/H for xs; base params for a rule; gate held fixed)
+            nbrs = xs_neighbors(params) if is_xs else neighbors(params)
             nbr_exp = []
             for q in nbrs:
-                sv = bt.stats(pooled_val(a.lake, aclass, rule, q, hz, tf, 1.0, gate))
+                sv = bt.stats(val_at(1.0, q))
                 if sv["n"] >= MIN_TRADES and np.isfinite(sv["expR"]):
                     nbr_exp.append(sv["expR"])
             frac_pos = (float(np.mean([e > 0 for e in nbr_exp])) if nbr_exp else 0.0)
@@ -321,14 +344,19 @@ def _promote(survivors: list[dict]):
         for i, s in enumerate(survivors, 1):
             s1, s2 = s["s1"], s["s2"]
             gate = s.get("gate")
-            name = f"{s['rule']}({pstr(s['params'])})" + (f" & {gate}" if gate else "")
+            is_xs = (s["rule"] == "xs_mom")
+            name = f"{s['rule']}({pstr(s['params'])})" + (f" & {gate}" if gate and not is_xs else "")
+            rule_line = (f"- Rule: cross-sectional momentum, long top-k / short bottom-k, rebalance per "
+                         f"`{s['params'].get('H')}` bars; net of turnover + swap"
+                         if is_xs else
+                         f"- Rule: {s['rule']} entry" + (f", gated on `{gate}`" if gate else "")
+                         + f"; stop {SL}xATR; target {TP}xATR; "
+                         f"{'session close' if s['hz']=='intraday' else '5-day hard'} invalidation")
             blocks.append("\n".join([
                 f"### C-{i:03d} · {name} — {s['aclass']} {s['tf']} {s['hz']}",
                 f"- Source hypothesis: `{s['id']}`",
                 f"- Universe / timeframe / horizon: {s['aclass']} (pooled) / {s['tf']} / {s['hz']}",
-                f"- Rule: {s['rule']} entry" + (f", gated on `{gate}`" if gate else "")
-                + f"; stop {SL}xATR; target {TP}xATR; "
-                f"{'session close' if s['hz']=='intraday' else '5-day hard'} invalidation",
+                rule_line,
                 f"- Net stats (val): trades {s1['n']}, winrate {fmt(s1['win'],1)}%, "
                 f"expectancy {fmt(s1['expR'])}R, PF {fmt(s1['pf'],2)}, maxDD {fmt(s1['maxdd_R'],1)}R, "
                 f"Sharpe {fmt(s1['sharpe'],3)}",

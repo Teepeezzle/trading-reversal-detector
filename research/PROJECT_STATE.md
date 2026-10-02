@@ -7,13 +7,13 @@ INTRADAY (open→same-session close) and SHORT SWING (≤5 trading days) across
 Forex, Metals (XAU/XAG), Oil (WTI/Brent), and Crypto (BTC/ETH/liquid alts).
 Success = documented edge net of costs + a daily top-5 actionable list.
 
-**Current phase:** PHASE 5 COMPLETE (D-017) — new factor families ran in CI: 540 hypotheses → 58
-base-PASS → T-303 phase=5 (N=288) → **0 candidates** (best `bb_breakout` FX 4h, Sharpe 0.10, p=0.11).
-**Cumulative: ~880 hypotheses across Phases 3–5, 0 deployable edges.** The single-factor space
-expressible on free data is exhausted. Holdout STILL never touched.
-NEXT = DECISION POINT (T-404, user's call): (a) cross-sectional ranking (last structurally-new $0
-idea; needs a cross-instrument engine change); (b) reconsider the $0 data constraint (deeper intraday
-/ survivorship-aware / broader universe); or (c) bank "no robust edge found" and stop.
+**Current phase:** PHASE 6 BUILT (T-404, D-018) — cross-sectional relative-strength (user-directed,
+the last structurally-new $0 idea). New engine `src/xsectional.py` (rank a class by momentum, long
+top-k / short bottom-k, non-overlapping rebalances, no-lookahead, net of cost) + `jobs/xs_sweep.py`
+(class × 15m/1h/4h/1D × (L,H) × k × ls/lo, phase 6) + `robustness.py --phase 6` xs re-eval. Validated
+locally end-to-end (9-coin crypto weak/marginal). Phases 3–5 left 0 edges (~880 hypotheses). Holdout
+never touched. NEXT: run research-xsweep in CI on the widened 17-coin lake → merge → research-robustness
+phase=6. If this too is empty (T-405) → reconsider the $0 data/budget constraint.
 Next: run research-combo-sweep in CI → merge results → research-robustness `phase=4`; then Phase 5.
 
 ---
@@ -100,4 +100,4 @@ Phase 6 (4-week forward paper) → Phase 7 (deploy). Keep pooling per class (D-0
 - How deep is Twelve Data free 15m/1h history in practice? (measure, record).
 - Crypto alt universe + any delisting handling we can approximate.
 
-_Last updated: 2026-10-02 (session 2 — Phase 5 done: ~880 hypotheses, 0 edges; decision point on next direction)._
+_Last updated: 2026-10-02 (session 2 — Phase 6 built: cross-sectional engine + sweep + judge, ready to run in CI)._

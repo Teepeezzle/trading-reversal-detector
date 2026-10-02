@@ -4,6 +4,19 @@ Append-only. Newest at top. Each entry: date · decision · why · reversible?
 
 ---
 
+### 2026-10-02 · D-018 · Phase 6 = cross-sectional relative-strength (new engine, own MTC family)
+Last structurally-new $0 idea (user-directed). New portable engine `src/xsectional.py`: each
+rebalance, rank a class's instruments by trailing momentum (lookback L), hold long top-k (/ short
+bottom-k, mode ls/lo) for H bars, **non-overlapping** periods so observations are ~independent.
+No-lookahead (rank@t, enter t+1 open, exit t+1+H open); net of one round-trip + overnight-swap per
+period; benchmarks = equal-weight buy-hold + random-pick control (same k/H). One rebalance period =
+one observation, so `bt.stats`/split and the `mtc.py` gauntlet apply unchanged. `jobs/xs_sweep.py`
+grids class × TF(15m/1h/4h/1D) × (L,H) × k × mode → **phase-6** rows; `robustness.py --phase 6`
+re-evaluates xs rows through the engine (2× cost + L/H sensitivity + Bonferroni + DSR), its own MTC
+family. Classes with <3 instruments (metals, oil on free data) auto-skip. Validated locally end-to-end
+(engine + judge, incl. a forced-PASS gauntlet). Local 9-coin crypto = weak/marginal (tiny Sharpe,
+fat tails). Real run = CI on the widened 17-coin lake. _Reversible: yes._
+
 ### 2026-10-02 · D-017 · Phase 5 verdict: new factor families also yield 0 candidates
 Full phase-5 sweep ran in CI on the widened lake: 540 hypotheses (5 families × 6 TFs × 5 classes ×
 2 horizons) → 58 base-gate PASS → T-303 `--phase 5` (N=288 valid tests, Bonferroni p<1.74e-4, SR*=0.42)

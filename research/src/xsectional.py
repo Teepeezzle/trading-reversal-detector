@@ -77,6 +77,19 @@ def _periods(close, opn, L, H, k, mode, rt, swap_daily, nights_per_bar, pick="mo
     return pd.DataFrame(rows)
 
 
+def val_trades(lake, aclass, tf, L, H, k=2, mode="ls", cost_mult=1.0) -> pd.DataFrame:
+    """The VALIDATION-split rebalance-period returns for one config (for the T-303 phase-6 judge)."""
+    close, opn = load_panels(lake, aclass, tf)
+    if close is None or len(close) < L + 2 * H + 10:
+        return pd.DataFrame({"net_R": [], "bars": [], "split": []})
+    c = cost_model.get(aclass, cost_mult)
+    tr = _periods(close, opn, L, H, k, mode, c["rt"], c["swap_daily"], BAR_HOURS.get(tf, 1.0) / 24.0, "mom")
+    if tr.empty:
+        return tr
+    tr["split"] = bt.tag_split(tr, bt.split_masks(pd.DataFrame({"time": close.index})))
+    return tr[tr.split == "val"]
+
+
 def evaluate_xs(lake, aclass, tf, L, H, k=2, mode="ls", cost_mult=1.0, rc_iters=8) -> dict:
     close, opn = load_panels(lake, aclass, tf)
     if close is None or len(close) < L + 2 * H + 10:
