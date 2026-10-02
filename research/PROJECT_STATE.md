@@ -16,8 +16,12 @@ with this gauntlet. Holdout NEVER touched. **Phase 7 (reopen for ~$0) — user c
 configs → 19 base-PASS → T-303 phase=7 (N=230) → **0 candidates**. Depth REFUTED "under-powered":
 high-n rules regressed to Sharpe ≈0.01 / p≈0.42 — the old near-misses were small-sample inflation.
 No FX/metals single-factor edge, confirmed with real power. Oil not on HistData (unchanged).
-**NEXT = Step B (T-407):** crypto alt-data — Binance deep OHLCV + CoinGlass/CoinAPI funding/OI/basis
-→ NEW economic factor families (carry, funding-momentum, perp-basis reversion). Holdout untouched.
+**NEXT = Step B (T-407) IN PROGRESS:** crypto alt-data. Foundation built + validated:
+`src/cryptoalt_client.py` (Bybit v5 — Binance 451s from US Actions; 2y funding + perp/spot OHLCV).
+Remaining: `src/cryptoalt.py` (enriched panel + families fund_rev/fund_mom/basis_rev, reusing the
+SL/TP engine) → `cryptoalt_refresh` (alt lake) → `alt_sweep` (phase 8) → robustness phase=8 → gauntlet.
+These are NEW economic signals (funding/basis), not price-only, so Step A's null doesn't predict them.
+Holdout untouched.
 Next: run research-combo-sweep in CI → merge results → research-robustness `phase=4`; then Phase 5.
 
 ---
@@ -104,4 +108,4 @@ Phase 6 (4-week forward paper) → Phase 7 (deploy). Keep pooling per class (D-0
 - How deep is Twelve Data free 15m/1h history in practice? (measure, record).
 - Crypto alt universe + any delisting handling we can approximate.
 
-_Last updated: 2026-10-02 (session 2 — Phase 7 Step A done: deep FX/metals 0 candidates, power hypothesis refuted; Step B next)._
+_Last updated: 2026-10-02 (session 2 — Phase 8 Step B foundation: Bybit alt-data client validated; families/sweep next)._
