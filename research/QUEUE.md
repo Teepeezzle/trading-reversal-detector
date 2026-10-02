@@ -30,10 +30,14 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
   SR*=0.33). **0 candidates** — no single factor cleared MTC. Leads logged in PROJECT_STATE +
   ROBUSTNESS.md. (`jobs/robustness.py` + `src/mtc.py` + `research-robustness` workflow; D-012.)
 
-## Phase 4+ (NEXT — Phase 3 left 0 standalone candidates, only leads)
-- ⬜ **T-401** Add a confirming factor / regime gate to the Phase-3 LEADS (oil `rsi_rev(n=7)` &
-  `zscore_rev` mean-reversion first; also crypto/FX donch + z-score). Gates to try: ADX trend/range,
-  SMA200-slope, ATR% vol hi/lo, session. Register combos (phase 4), re-run T-303. See PROJECT_STATE.
+## Phase 4 (BUILT — combos × gates)
+- 🔵 **T-401** `jobs/combo_sweep.py` + `src/factors.py` GATES + `research-combo-sweep` workflow;
+  T-303 generalised with `--phase`. Gate catalogue: adx_lo20/lo25/hi25, trend_up, vol_lo/hi, ny
+  (D-013). Local preview on real lake: 119 combos → 21 base-PASS, 13 survive 2× cost; best =
+  crypto `donch_brk`+`vol_hi`/`ny` (Sharpe ≈0.18, DSR ≈0.66) — still 0 cleared MTC (power-limited).
+  **Next: run research-combo-sweep in CI → merge results → research-robustness (phase=4).**
+- ⬜ **T-402** If a Phase-4 combo clears the gauntlet → CANDIDATES.md → Phase 5. Otherwise the top
+  gated combos (crypto breakout + regime) are the Phase-5 confirmation leads despite not clearing MTC.
 - ⬜ **T-501** 60/20/20 split + walk-forward; holdout touched ONCE at the end.
 - ⬜ **T-601** 4-week forward paper test; log every signal taken or not.
 - ⬜ **T-701** Scanner + signal spec + daily morning routine.

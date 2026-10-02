@@ -4,6 +4,21 @@ Append-only. Newest at top. Each entry: date · decision · why · reversible?
 
 ---
 
+### 2026-10-02 · D-013 · Phase-4 = Phase-3 leads × regime gates; same gauntlet, own MTC family
+Phase 3 left 0 standalone candidates, only leads. Phase 4 (T-401) crosses **every** phase-3
+base-gate PASS (read from the registry — no cherry-picking) with a fixed gate catalogue
+(`factors.GATES`): ADX ranging/trending (`adx_lo20/lo25/hi25`), higher-TF trend (`trend_up` =
+close>SMA200), volatility regime (`vol_lo/hi` vs trailing-median ATR%), and NY session (`ny`).
+Combined rule = base & gate, no-lookahead (gate read at the signal bar, trade at next open),
+identified by `entry_rule = "<rule>+<gate>"` with base params left in `params` so T-303's
+sensitivity sweep still perturbs them. The **phase-4 search is its own multiple-testing family**
+(T-303 `--phase 4`): N and the DSR benchmark come from phase-4 valid tests only, not phase-3.
+**Finding:** gating lifted robustness markedly — 13/21 base-PASS combos now survive 2× cost (vs
+≈0 in Phase 3), led by **crypto `donch_brk`+`vol_hi`/`ny`/`adx_hi25`** (val Sharpe ≈0.18, DSR ≈0.66,
++0.125R at 2× cost, 100% param-robust). Still 0 cleared the full gauntlet — the gate concentrates
+the edge into ~120 trades, so significance is power-limited, not direction-wrong. These are the
+**Phase-5 confirmation leads**; thresholds were NOT loosened to manufacture a candidate. _Reversible: yes._
+
 ### 2026-10-02 · D-012 · T-303 promotion gate = 2× cost + sensitivity + Bonferroni + Deflated Sharpe
 A base-gate PASS (≥100 val trades, positive net expectancy, beat random) is only a lead; the
 winner of a ~220-hypothesis sweep is inflated by selection alone. **Decision:** a hypothesis

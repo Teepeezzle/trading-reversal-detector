@@ -13,6 +13,10 @@ name: Research — Robustness / T-303 (off-peak)
 on:
   workflow_dispatch:
     inputs:
+      phase:
+        description: "trial family to judge: '3', '4', or 'all'"
+        required: false
+        default: "3"
       alpha:
         description: "family-wise error rate (Bonferroni)"
         required: false
@@ -69,6 +73,7 @@ jobs:
           PROMOTE=""
           if [ "${{ github.event.inputs.promote || 'true' }}" = "true" ]; then PROMOTE="--promote"; fi
           python research/jobs/robustness.py \
+            --phase "${{ github.event.inputs.phase || '3' }}" \
             --alpha "${{ github.event.inputs.alpha || '0.05' }}" \
             --dsr "${{ github.event.inputs.dsr || '0.95' }}" \
             $PROMOTE
