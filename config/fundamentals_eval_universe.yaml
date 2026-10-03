@@ -1,0 +1,49 @@
+# Track C — EVALUATION universe for the fundamentals study (NOT the live scanner).
+#
+# Purpose: broaden the signal base so the forward/backtest sample can reach n>=200, and so the
+# fundamentals we already hold actually have instruments to attach to:
+#   - OIL (EIA crude inventories) had NO instrument in the live universe -> add WTI + Brent (highest
+#     leverage: it turns EIA from unusable into usable).
+#   - FX / metals / indices ride the FRED macro backdrop.
+# Directions are UNRESTRICTED (both buy & sell) on purpose: the live scanner's 10-asset universe is
+# direction-pruned from a selection-biased 2y study (it says so), which inflates apparent edge. For an
+# honest fundamentals test we want an unbiased base, so each instrument is scored both ways.
+#
+# This file lists ASSETS only. Signal parameters (divergence / DRS / timeframes / exits) are inherited
+# from config/v5_confluence_scanner.yaml so the signal definition is identical to the live one. The live
+# scanner config and the live board are NOT modified by adding this file.
+#
+# class: fundamental mapping for the context/shadow layer (forex_macro=FRED, oil=EIA, crypto=funding+sent).
+
+assets:
+  # --- OIL (EIA) — new; highest leverage ---
+  XTIUSD:  {ticker: CL=F,     anchor: ny17, dirs: [buy, sell], class: oil}      # WTI crude
+  XBRUSD:  {ticker: BZ=F,     anchor: ny17, dirs: [buy, sell], class: oil}      # Brent crude
+
+  # --- METALS (FRED/USD) ---
+  XAUUSD:  {ticker: GC=F,     anchor: ny17, dirs: [buy, sell], class: forex_macro}
+  XAGUSD:  {ticker: SI=F,     anchor: ny17, dirs: [buy, sell], class: forex_macro}
+
+  # --- INDICES (FRED/USD) ---
+  NAS100:  {ticker: NQ=F,     anchor: ny17, dirs: [buy, sell], class: forex_macro}
+  US30USD: {ticker: YM=F,     anchor: ny17, dirs: [buy, sell], class: forex_macro}
+  SPX500:  {ticker: ES=F,     anchor: ny17, dirs: [buy, sell], class: forex_macro}
+
+  # --- FX majors/crosses mapping cleanly to the USD macro backdrop ---
+  EURUSD:  {ticker: EURUSD=X, anchor: ny17, dirs: [buy, sell], class: forex_macro}
+  GBPUSD:  {ticker: GBPUSD=X, anchor: ny17, dirs: [buy, sell], class: forex_macro}
+  USDJPY:  {ticker: USDJPY=X, anchor: ny17, dirs: [buy, sell], class: forex_macro}
+  AUDUSD:  {ticker: AUDUSD=X, anchor: ny17, dirs: [buy, sell], class: forex_macro}
+  USDCAD:  {ticker: USDCAD=X, anchor: ny17, dirs: [buy, sell], class: forex_macro}   # oil-sensitive CAD
+  NZDUSD:  {ticker: NZDUSD=X, anchor: ny17, dirs: [buy, sell], class: forex_macro}
+  USDCHF:  {ticker: USDCHF=X, anchor: ny17, dirs: [buy, sell], class: forex_macro}
+  NZDJPY:  {ticker: NZDJPY=X, anchor: ny17, dirs: [buy, sell], class: forex_macro}
+  EURJPY:  {ticker: EURJPY=X, anchor: ny17, dirs: [buy, sell], class: forex_macro}
+  GBPJPY:  {ticker: GBPJPY=X, anchor: ny17, dirs: [buy, sell], class: forex_macro}
+
+  # --- CRYPTO (funding now; sentiment once N-8 backfill reaches >=2024-10) ---
+  BTCUSD:  {ticker: BTC-USD,  anchor: utc,  dirs: [buy, sell], class: crypto}
+  ETHUSD:  {ticker: ETH-USD,  anchor: utc,  dirs: [buy, sell], class: crypto}
+  SOLUSD:  {ticker: SOL-USD,  anchor: utc,  dirs: [buy, sell], class: crypto}
+  DOGEUSD: {ticker: DOGE-USD, anchor: utc,  dirs: [buy, sell], class: crypto}
+  XRPUSD:  {ticker: XRP-USD,  anchor: utc,  dirs: [buy, sell], class: crypto}

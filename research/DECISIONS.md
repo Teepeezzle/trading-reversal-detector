@@ -4,6 +4,26 @@ Append-only. Newest at top. Each entry: date · decision · why · reversible?
 
 ---
 
+### 2026-10-03 · D-034 · Fundamentals v1 — reframe to context + forward shadow test + broaden base (milestone gates)
+User-directed follow-up to D-033. We cannot prove "fundamentals improve signals" on the thin sample, so
+we separate *using them correctly now* from *proving value over time*. Three tracks, branch
+`feature/fundamentals-v1` (PR-only; nothing merges to main / touches the live board without approval):
+**(A) context layer** — fundamentals shown on the board as DISPLAY-ONLY context (macro regime, latest
+point-in-time values, next projected event), labelled "Context - not validated", toggleable; zero change
+to the signal path (proven byte-identical, `backtest/test_context_identical.py`). Displaying the backdrop
+is a factual claim, not a statistical one — defensible regardless of sample size. **(B) forward shadow
+test** — log every fresh SETUP with its point-in-time context + three shadow uses (gate/score/tag)
+recorded but never acted on; resolve outcomes; weekly Actions job. **(C) broaden the base** — a separate
+direction-unrestricted eval universe (`config/fundamentals_eval_universe.yaml`, +12 instruments incl.
+WTI/Brent so EIA is finally usable; live scanner config untouched) + a DerSimonian-Laird partial-pooling
+estimator (`backtest/pooled_estimate.py`) that detects a weak-but-consistent effect across cells without
+more data. **MILESTONE GATES (held to):** resolved n=100 = preliminary read (NO verdict); n=200 = first
+significance test WITH multiple-testing correction; n=400 = walk-forward. **Hard rule: do NOT run the
+augmented-vs-baseline backtest until pooled n>=200.** No performance claim is made until then; context is
+explicitly not validated. Transferable to the main program: the forward-log + pooling + point-in-time
+context pattern is how any thin-sample overlay (incl. the N-8 sentiment factor) should be judged.
+_Reversible: yes — all isolated on the feature branch; context is toggleable and additive._
+
 ### 2026-10-03 · D-033 · Confluence Board fundamentals study — NOT VIABLE (stopped at viability gate)
 Outcome of the D-032 digression (full report: `research/fundamentals/RESULTS.md`). The question "do
 fundamentals improve the Confluence Board's signals?" **cannot be answered honestly on current data.**
