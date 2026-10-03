@@ -2,6 +2,21 @@
 
 > Read this file first every session. Resume from "Next", state a 3-line plan, then work.
 
+## ⏸ PAUSED 2026-10-03 — scoped digression (Confluence Board fundamentals study)
+This multi-week project is **paused, not abandoned**, for a scoped evaluation: *does incorporating
+fundamental data improve the live Confluence Board's signals?* (backtest + report only, no deployment).
+Work is isolated on branch `research/fundamentals-augmentation`; main research branch/data untouched;
+off-peak Actions left running (the N-8 AV-sentiment harvester keeps self-advancing on main per D-031).
+See **D-032**. Digression deliverable = `research/fundamentals/RESULTS.md`.
+
+> **RESUME HERE (main project, after the digression resolves):** N-8 / Phase 10 is built and merged; the
+> AV daily-sentiment backfill is **self-advancing** (D-031) — the 05:45 UTC cron harvests ~20 windows/day
+> AND auto-squash-merges its archive PR to main. As of 2026-10-03 the archive is at **1,087 rows, span
+> 2023-01 → 2024-02** (~98 of 138 windows remaining; ~5 days to ~present). **Exact next action:** once the
+> span reaches ~present, dispatch `research-sent-sweep` (runs `--refresh`) → then `research-robustness`
+> with `phase=10`, and report the Phase-10 verdict. Nothing else is in flight. Program tally: 2,120
+> hypotheses across Phases 3–9, 0 deployable edges; CANDIDATES.md empty.
+
 **Mission:** rules-based, out-of-sample-validated, cost-aware signal system for
 INTRADAY (open→same-session close) and SHORT SWING (≤5 trading days) across
 Forex, Metals (XAU/XAG), Oil (WTI/Brent), and Crypto (BTC/ETH/liquid alts).

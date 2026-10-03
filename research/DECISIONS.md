@@ -4,6 +4,23 @@ Append-only. Newest at top. Each entry: date · decision · why · reversible?
 
 ---
 
+### 2026-10-03 · D-032 · PAUSE the main research program for a scoped Confluence Board fundamentals study
+User-directed digression. The main multi-week signal-research program is **paused (not abandoned)** to
+answer a bounded question about a *different* live system — the **Confluence Board** (the divergence/
+confluence scanner that auto-refreshes to GitHub Pages): *does incorporating fundamental data improve
+its signals?* Strictly an **evaluation + recommendation**, no deployment; nothing on the live board
+changes without explicit approval (Step 6 gate). **Hard rules for the digression:** work only on branch
+`research/fundamentals-augmentation`; never push to main; do not modify the live Pages output, its
+workflows, or its data pipeline; add the fundamental layer as a parallel/opt-in path (do not rewrite
+existing signal logic); **never interpolate/extrapolate/back-fill** a fundamental value (a missing
+record is a gap, not a guess); all data access read-only; time-boxed — if the Step-1 data audit fails
+the viability gate (<200 signals in the overlap window, or <100 per asset class) or reveals look-ahead
+(revised-to-date not point-in-time fundamentals), **stop early and say so** rather than forcing a
+deliverable. Off-peak Actions left running: the N-8 AV-sentiment harvester continues self-advancing on
+main (D-031) — that is the research program's own job, explicitly left untouched. Outcome will be logged
+here (transferable to the main program). _Reversible: yes — digression is isolated on its own branch;
+RESUME HERE for the main project is pinned at the top of PROJECT_STATE.md._
+
 ### 2026-10-03 · D-031 · Auto-advance the AV sentiment backfill (scoped exception to D-002)
 User directive: "merge tomorrow's archive PR and keep advancing the backfill." The resumable harvester
 only progresses if each day's archive lands on `main` (the next run reads the committed archive from
