@@ -31,6 +31,7 @@ from src.v5_divergence import (          # noqa: E402
 )
 from src.v5_confluence import drs_signals            # noqa: E402
 import fundamentals as FUND               # noqa: E402  (display-only context; never feeds signals)
+import board_health as HEALTH             # noqa: E402  (freshness + keyless crypto spot cross-check)
 
 CFG = yaml.safe_load((ROOT / "config" / "v5_confluence_scanner.yaml").read_text("utf-8"))
 DIV = dict(CFG["divergence"]); DIV["aligned_only"] = True
@@ -212,6 +213,14 @@ def asset_state(asset, tk, anchor, allowed, watch, cache, now):
                 last_div=last_div, setup=setup, status=status)
 
 
+def _nodata_card(asset, tk, allowed, watch, reason):
+    """Fail-loud placeholder so an asset whose fetch failed still RENDERS (never silently dropped)."""
+    return dict(asset=asset, ticker=tk, dirs=allowed, watch=watch, price=None, updated=None,
+                price_tf=None, atr=None, trends={}, trend_bias="na", support=None, resistance=None,
+                near_atr=None, last_div=None, setup=None, status="NODATA",
+                error=reason or "unknown (fetch failed)")
+
+
 def _frame_for(cache, ticker):
     """Longest cached base frame for a ticker (for the ATR vol-regime). None if absent."""
     best = None
@@ -235,6 +244,8 @@ def _attach_context(out, cache, now):
         dxy = None
     n_ctx = 0
     for card in out:
+        if card.get("status") == "NODATA":
+            continue                                  # no context for an asset with no data
         try:
             pf = _frame_for(cache, card.get("ticker"))
             card["context"] = FUND.context_vector(card["asset"], card.get("updated", now),
@@ -254,31 +265,43 @@ def main():
               for a, s in ASSETS.items()]
     roster += [(a, tk, anc, ["buy", "sell"], True) for a, (tk, anc) in WATCHLIST.items()]
     for asset, tk, anchor, allowed, watch in roster:
+        reason = None
         try:
             st = asset_state(asset, tk, anchor, allowed, watch, cache, now)
+            if st is None:
+                reason = "no usable OHLCV (fetch empty/rate-limited or <220 bars)"
         except Exception as exc:  # noqa: BLE001  one bad ticker must not sink the board
-            print(f"{asset:<8} SKIP ({exc})", flush=True); st = None
+            st = None; reason = f"error: {exc}"
         if st:
             out.append(st)
             print(f"{asset:<8} {'watch' if watch else 'valid':<5} {st['status']:<6} "
                   f"bias {st['trend_bias']:<5} {'SETUP '+st['setup']['side'] if st['setup'] else ''}", flush=True)
-        elif st is None and asset not in [o['asset'] for o in out]:
-            pass
-    rank = {"SETUP": 0, "NEAR": 1, "QUIET": 2}
+        else:
+            out.append(_nodata_card(asset, tk, allowed, watch, reason))   # FAIL LOUDLY — never drop
+            print(f"{asset:<8} {'watch' if watch else 'valid':<5} NODATA ({reason})", flush=True)
+    rank = {"SETUP": 0, "NEAR": 1, "QUIET": 2, "NODATA": 3}
     # validated pairs sort before watch pairs within a status
-    out.sort(key=lambda a: (rank[a["status"]], a.get("watch", False), a["asset"]))
+    out.sort(key=lambda a: (rank.get(a["status"], 3), a.get("watch", False), a["asset"]))
 
+    # ---- freshness + keyless crypto spot cross-check (additive; after signals) ----
+    HEALTH.attach_health(out, now)
     # ---- Track A: attach DISPLAY-ONLY fundamental context (additive; signal fields untouched) ----
     if CONTEXT_ON:
         _attach_context(out, cache, now)
 
+    nodata = [a["asset"] for a in out if a["status"] == "NODATA"]
     data = {"generated": now.strftime("%Y-%m-%d %H:%M UTC"),
             "context_enabled": CONTEXT_ON,
             "tf_order": TF_ORDER,
             "counts": {"setup": sum(1 for a in out if a["status"] == "SETUP"),
                        "near": sum(1 for a in out if a["status"] == "NEAR"),
-                       "quiet": sum(1 for a in out if a["status"] == "QUIET")},
+                       "quiet": sum(1 for a in out if a["status"] == "QUIET"),
+                       "nodata": len(nodata),
+                       "stale": sum(1 for a in out if a.get("stale"))},
+            "nodata_assets": nodata,
             "assets": out}
+    if nodata:
+        print(f"WARNING: {len(nodata)} asset(s) have NO DATA and render as 'data unavailable': {nodata}", flush=True)
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("window.CONFLUENCE_STATE = " + json.dumps(data, separators=(",", ":")) + ";",
                    encoding="utf-8")
