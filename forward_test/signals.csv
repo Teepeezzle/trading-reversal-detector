@@ -1,0 +1,1 @@
+signal_id,logged_at,instrument,asset_class,direction,tf,confirm_time,entry,stop,target,horizon_days,macro_rates,macro_infl,macro_infl_yoy,usd_backdrop,dxy_trend,vol_regime,macro_available_at,next_event,next_event_at,next_event_within,context_json,outcome,exit_time,exit_price,R,resolved_at
