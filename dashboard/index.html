@@ -100,6 +100,22 @@ h1{font-size:23px;font-weight:700;margin:0;letter-spacing:.2px}
 .ett{display:flex;gap:12px;font-family:"IBM Plex Mono",monospace;font-size:12px}
 .ett span{color:var(--mut2)} .ett b{color:var(--tx);font-weight:600}
 .none{color:var(--mut2);font-size:11.5px;font-style:italic}
+/* Fundamentals CONTEXT panel (display-only; not a signal) */
+.ctx{border-top:1px dashed var(--bd);padding-top:9px;font-size:12px;display:flex;flex-direction:column;gap:6px}
+.ctx .ctag{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--amber);
+  background:color-mix(in srgb,var(--amber) 12%,transparent);border:1px solid color-mix(in srgb,var(--amber) 35%,transparent);
+  border-radius:4px;padding:2px 7px;align-self:flex-start}
+.ctx .crow{display:flex;gap:7px;flex-wrap:wrap;color:var(--mut);align-items:center}
+.ctx .crow b{color:var(--tx);font-weight:600}
+.ctx .chip{font-size:11px;padding:2px 7px;border-radius:5px;background:var(--panel2);border:1px solid var(--bd);font-family:"IBM Plex Mono",monospace}
+.ctx .chip.evt{color:var(--amber);border-color:color-mix(in srgb,var(--amber) 40%,transparent);font-family:inherit}
+.ctx .stale{color:var(--mut2);font-style:italic}
+body.ctx-off .ctx{display:none}
+.toggle{display:inline-flex;align-items:center;gap:8px;cursor:pointer;border:1px solid var(--bd2);background:var(--panel);
+  border-radius:999px;padding:6px 12px;font:600 12px/1 "IBM Plex Sans",sans-serif;color:var(--tx);box-shadow:var(--shadow)}
+.toggle .sw{width:26px;height:15px;border-radius:999px;background:var(--cyan);position:relative;transition:background .15s;flex:none}
+.toggle .sw::after{content:"";position:absolute;top:2px;left:13px;width:11px;height:11px;border-radius:50%;background:#fff;transition:left .15s}
+body.ctx-off .toggle .sw{background:var(--bd2)} body.ctx-off .toggle .sw::after{left:2px}
 footer{color:var(--mut2);font-size:11px;line-height:1.7;margin-top:22px;border-top:1px solid var(--bd);padding-top:14px}
 .hidden{display:none!important}
 @media (max-width:520px){.grid{grid-template-columns:1fr}.counts{width:100%;margin-left:0}}
@@ -120,6 +136,8 @@ footer{color:var(--mut2);font-size:11px;line-height:1.7;margin-top:22px;border-t
       <button data-f="all" class="on">All pairs</button>
       <button data-f="act">Actionable</button>
     </div>
+    <button class="toggle" id="ctxToggle" aria-pressed="true"
+      title="Show/hide the fundamentals context panel (display-only, not a signal)"><span class="sw"></span> Context</button>
     <div class="legend">
       <span><span class="dot d-setup"></span> Setup &mdash; fresh trigger</span>
       <span><span class="dot d-near"></span> Near &mdash; price at a level</span>
@@ -137,6 +155,12 @@ footer{color:var(--mut2);font-size:11px;line-height:1.7;margin-top:22px;border-t
 const D = window.CONFLUENCE_STATE || {assets:[],counts:{},tf_order:[]};
 let filter = "all";
 try{ filter = localStorage.getItem("cb-filter") || "all"; }catch(e){}
+let ctxOn = true;                                     // context panel: default ON, one click to hide
+try{ ctxOn = localStorage.getItem("cb-context") !== "0"; }catch(e){}
+function applyCtx(){
+  document.body.classList.toggle("ctx-off", !ctxOn);
+  const t=document.getElementById("ctxToggle"); if(t) t.setAttribute("aria-pressed", String(ctxOn));
+}
 
 function fmt(n){ if(n==null) return "—"; const a=Math.abs(n);
   const dp = a>=1000?0:a>=100?2:a>=1?3:5; return Number(n).toFixed(dp); }
@@ -185,6 +209,29 @@ function setupBox(a){
     <div class="ett"><span>entry</span><b>${fmt(s.entry)}</b><span>SL</span><b>${fmt(s.stop)}</b><span>TP</span><b>${fmt(s.target)}</b></div>
   </div>`;
 }
+function ctxBox(a){
+  const c=a.context; if(!c) return "";               // only when the generator attached context
+  const m=c.macro_regime||{}, v=c.vol_regime||{}, ne=c.next_event;
+  const macro=[
+    (m.rates_dir&&m.rates_dir!=="na")?`rates <b>${esc(m.rates_dir)}</b>`:null,
+    (m.inflation_dir&&m.inflation_dir!=="na")?`infl <b>${esc(m.inflation_dir)}</b>${m.inflation_yoy_pct!=null?` (${m.inflation_yoy_pct}%)`:""}`:null,
+    (m.usd_backdrop&&m.usd_backdrop!=="na")?`USD <b>${esc(m.usd_backdrop)}</b>`:null,
+    (m.dxy_trend&&m.dxy_trend!=="na")?`DXY <b>${esc(m.dxy_trend)}</b>`:null,
+    (v.regime&&v.regime!=="na")?`vol <b>${esc(v.regime)}</b>`:null
+  ].filter(Boolean).join(" · ");
+  const vals=(c.latest_values||[]).map(x=>{
+    const val=(x.value==null)?"—":x.value;
+    const sp=(x.surprise!=null)?` <span style="color:${x.surprise>0?'var(--up)':'var(--down)'}">${x.surprise>0?'+':''}${x.surprise}</span>`:"";
+    const st=x.stale?` <span class="stale">(stale ${Math.round(x.age_days)}d)</span>`:"";
+    return `<span class="chip">${esc(x.name)}: <b>${val}</b>${sp}${st}</span>`;
+  }).join("");
+  const evt=ne?`<span class="chip evt" title="projected from release cadence; not a confirmed schedule">next ${esc(ne.name)} ~${esc((ne.expected_at||'').slice(0,10))}${ne.within_horizon?" ⚠ in-horizon":""}</span>`:"";
+  return `<div class="ctx">
+    <span class="ctag" title="Displayed context only — makes no claim about outcomes; sample too thin to validate (see forward test)">Context — not validated</span>
+    ${macro?`<div class="crow">${macro}</div>`:""}
+    ${(vals||evt)?`<div class="crow">${vals}${evt}</div>`:""}
+  </div>`;
+}
 function card(a){
   return `<div class="card s-${a.status}" data-status="${a.status}">
     <div class="chead"><span class="sym">${esc(a.asset)}</span>${dirsBadge(a)}
@@ -196,6 +243,7 @@ function card(a){
     <div><div class="lbl">DRS levels &amp; price location</div>${gauge(a)}</div>
     ${divLine(a)}
     ${setupBox(a)}
+    ${ctxBox(a)}
   </div>`;
 }
 function render(){
@@ -214,7 +262,8 @@ function render(){
   document.getElementById("foot").innerHTML =
     `<b>How to read:</b> each pair shows its trend on every scanned timeframe (chart-native 200-SMA), the nearest DRS support/resistance and how close price is, the latest trend-aligned MACD divergence, and the most recent confluence setup. `+
     `<b>Status:</b> SETUP = a fresh trigger (≤5 bars); NEAR = price sitting at an allowed-direction level, watching for a divergence to complete the setup; QUIET = neither. Pairs badged <b>watch</b> are your watchlist (both directions, no validated edge) &mdash; context only, they do not feed the email scanner. `+
-    `Exit shown is SL 1.5×ATR / TP 4×ATR (1:2.67). This is a <b>snapshot</b> as of ${D.generated}; regenerate to refresh. Modest, forward-tracked paper edge — not financial advice.`;
+    `Exit shown is SL 1.5×ATR / TP 4×ATR (1:2.67). This is a <b>snapshot</b> as of ${D.generated}; regenerate to refresh. Modest, forward-tracked paper edge — not financial advice. `+
+    (D.context_enabled ? `<br><b>Context panel</b> (toggle above) shows the macro backdrop, latest fundamental values, and the next projected high-impact event for each pair — <b>display-only, point-in-time, and explicitly not validated</b>. It does <b>not</b> affect signals; whether fundamentals help is being measured by a parallel forward shadow test, not claimed here.` : ``);
   [...document.querySelectorAll("#filter button")].forEach(b=>b.classList.toggle("on",b.dataset.f===filter));
 }
 document.getElementById("filter").addEventListener("click",e=>{
@@ -226,7 +275,11 @@ document.getElementById("counts").addEventListener("click",e=>{
   filter = (filter===b.dataset.f) ? "all" : b.dataset.f;   // click active status again = back to All
   try{localStorage.setItem("cb-filter",filter);}catch(e){} render();
 });
+document.getElementById("ctxToggle").addEventListener("click",()=>{
+  ctxOn=!ctxOn; try{localStorage.setItem("cb-context", ctxOn?"1":"0");}catch(e){} applyCtx();
+});
 render();
+applyCtx();
 </script>
 
 </body>
