@@ -100,6 +100,18 @@ h1{font-size:23px;font-weight:700;margin:0;letter-spacing:.2px}
 .ett{display:flex;gap:12px;font-family:"IBM Plex Mono",monospace;font-size:12px}
 .ett span{color:var(--mut2)} .ett b{color:var(--tx);font-weight:600}
 .none{color:var(--mut2);font-size:11.5px;font-style:italic}
+/* Data-freshness + NODATA (fix/board-data-integrity) */
+.fresh{font-size:10px;font-weight:600;padding:2px 7px;border-radius:5px;font-family:"IBM Plex Mono",monospace;margin-left:auto}
+.fresh.ok{color:var(--up);background:color-mix(in srgb,var(--up) 12%,transparent)}
+.fresh.warn{color:var(--amber);background:color-mix(in srgb,var(--amber) 15%,transparent)}
+.fresh.err{color:var(--down);background:color-mix(in srgb,var(--down) 15%,transparent)}
+.spot{font-size:11.5px;color:var(--mut)}
+.spot b{color:var(--tx)} .spot .src{color:var(--mut2);font-size:10.5px}
+.card.s-NODATA{border-color:var(--down);background:color-mix(in srgb,var(--down) 6%,var(--panel))}
+.st-NODATA{color:#fff;background:var(--down)}
+.nodata{font-size:13px;font-weight:600;color:var(--down)}
+.ndnote{font-size:11px;color:var(--mut2);font-style:italic}
+.pill.health{border-color:color-mix(in srgb,var(--down) 45%,transparent);color:var(--down)}
 /* Fundamentals CONTEXT panel (display-only; not a signal) */
 .ctx{border-top:1px dashed var(--bd);padding-top:9px;font-size:12px;display:flex;flex-direction:column;gap:6px}
 .ctx .ctag{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--amber);
@@ -232,13 +244,38 @@ function ctxBox(a){
     ${(vals||evt)?`<div class="crow">${vals}${evt}</div>`:""}
   </div>`;
 }
+function freshChip(a){
+  if(a.status==="NODATA") return `<span class="fresh err" title="price feed failed this refresh">no data</span>`;
+  const age=a.bar_age_min;
+  if(age==null) return `<span class="fresh warn" title="no freshness timestamp">age n/a</span>`;
+  const txt = age<60 ? `${Math.round(age)}m` : age<1440 ? `${(age/60).toFixed(1)}h` : `${(age/1440).toFixed(1)}d`;
+  const cls = a.stale ? "err" : (age>120 ? "warn" : "ok");
+  return `<span class="fresh ${cls}" title="age of last bar (updated ${esc((a.updated||'').slice(0,16))} UTC)">⟳ ${txt} ago</span>`;
+}
+function spotLine(a){
+  if(a.spot_price==null) return "";
+  const sage = a.spot_age_min!=null ? `${Math.round(a.spot_age_min)}m ago` : "now";
+  const flag = a.stale_vs_spot ? ` <span class="fresh err">bar stale → showing spot</span>` : "";
+  return `<div class="spot">spot <b class="mono">${fmt(a.spot_price)}</b> <span class="src">${esc(a.spot_source||"")} · ${sage}</span>${flag}</div>`;
+}
 function card(a){
+  if(a.status==="NODATA"){
+    return `<div class="card s-NODATA" data-status="NODATA">
+      <div class="chead"><span class="sym">${esc(a.asset)}</span>${dirsBadge(a)}
+        <span class="status st-NODATA">NO DATA</span></div>
+      <div class="priceline"><span class="price">—</span>${freshChip(a)}</div>
+      <div class="nodata">⚠ Data unavailable</div>
+      <div class="ndnote">${esc(a.error||"price feed failed this refresh")}. In the universe but its feed failed — shown, not hidden, so the gap is visible.</div>
+    </div>`;
+  }
+  const showPrice = (a.stale_vs_spot && a.spot_price!=null) ? a.spot_price : a.price;
   return `<div class="card s-${a.status}" data-status="${a.status}">
     <div class="chead"><span class="sym">${esc(a.asset)}</span>${dirsBadge(a)}
       <span class="status st-${a.status}">${a.status}</span></div>
-    <div class="priceline"><span class="price">${fmt(a.price)}</span>
+    <div class="priceline"><span class="price">${fmt(showPrice)}</span>
       <span class="bias ${a.trend_bias}">${a.trend_bias==="up"?"trend up":a.trend_bias==="down"?"trend down":"mixed"}</span>
-      <span class="upd">${esc((a.updated||"").slice(5,16))}</span></div>
+      ${freshChip(a)}</div>
+    ${spotLine(a)}
     <div><div class="lbl">Trend by timeframe</div>${tfStrip(a)}</div>
     <div><div class="lbl">DRS levels &amp; price location</div>${gauge(a)}</div>
     ${divLine(a)}
@@ -256,13 +293,15 @@ function render(){
   const c=D.counts||{};
   const pill=(f,cls,label,n)=>`<button class="pill filt ${filter===f?'on':''}" data-f="${f}" aria-pressed="${filter===f}"><span class="dot ${cls}"></span>${label} <span class="n">${n||0}</span></button>`;
   document.getElementById("counts").innerHTML =
-    pill("setup","d-setup","Setup",c.setup)+pill("near","d-near","Near",c.near)+pill("quiet","d-quiet","Quiet",c.quiet);
+    pill("setup","d-setup","Setup",c.setup)+pill("near","d-near","Near",c.near)+pill("quiet","d-quiet","Quiet",c.quiet)+
+    ((c.nodata||c.stale) ? `<span class="pill health" title="assets with no data / stale price this refresh">⚠ ${c.nodata||0} no-data · ${c.stale||0} stale</span>` : "");
   document.getElementById("sub").textContent =
     `${D.assets.length} pairs · snapshot ${D.generated} · aligned V5 divergence + DRS support/resistance + chart-native trend`;
   document.getElementById("foot").innerHTML =
     `<b>How to read:</b> each pair shows its trend on every scanned timeframe (chart-native 200-SMA), the nearest DRS support/resistance and how close price is, the latest trend-aligned MACD divergence, and the most recent confluence setup. `+
     `<b>Status:</b> SETUP = a fresh trigger (≤5 bars); NEAR = price sitting at an allowed-direction level, watching for a divergence to complete the setup; QUIET = neither. Pairs badged <b>watch</b> are your watchlist (both directions, no validated edge) &mdash; context only, they do not feed the email scanner. `+
     `Exit shown is SL 1.5×ATR / TP 4×ATR (1:2.67). This is a <b>snapshot</b> as of ${D.generated}; regenerate to refresh. Modest, forward-tracked paper edge — not financial advice. `+
+    `<br><b>Data freshness:</b> each card shows its last-bar age (⟳); amber/red = getting old/stale. An asset whose feed fails this refresh renders as a red <b>NO DATA</b> card — never hidden. Crypto also carries a keyless <b>CoinGecko spot</b> cross-check; if the primary bar is stale the fresher spot is shown. `+
     (D.context_enabled ? `<br><b>Context panel</b> (toggle above) shows the macro backdrop, latest fundamental values, and the next projected high-impact event for each pair — <b>display-only, point-in-time, and explicitly not validated</b>. It does <b>not</b> affect signals; whether fundamentals help is being measured by a parallel forward shadow test, not claimed here.` : ``);
   [...document.querySelectorAll("#filter button")].forEach(b=>b.classList.toggle("on",b.dataset.f===filter));
 }

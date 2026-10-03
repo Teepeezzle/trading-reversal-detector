@@ -50,6 +50,12 @@ jobs:
           PYTHONIOENCODING: "utf-8"
         run: python backtest/dashboard_data.py dashboard/data.js
 
+      - name: Board self-check (fail loud, non-blocking)
+        continue-on-error: true   # surface degradation in the run; the board now renders NODATA, so still deploy
+        env:
+          PYTHONIOENCODING: "utf-8"
+        run: python backtest/board_selfcheck.py dashboard/data.js
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
         with:
