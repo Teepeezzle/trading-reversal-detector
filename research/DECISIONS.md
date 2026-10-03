@@ -4,6 +4,28 @@ Append-only. Newest at top. Each entry: date · decision · why · reversible?
 
 ---
 
+### 2026-10-03 · D-033 · Confluence Board fundamentals study — NOT VIABLE (stopped at viability gate)
+Outcome of the D-032 digression (full report: `research/fundamentals/RESULTS.md`). The question "do
+fundamentals improve the Confluence Board's signals?" **cannot be answered honestly on current data.**
+The Confluence Board is a live *snapshot* (no persisted signal log), so signals are reconstructed by
+the frozen confluence logic over yfinance history (trailing ~730d; 15–45m only ~60d). Measured over
+that window across the whole 10-asset validated universe: **65 signals** (FX 47, crypto 12, metals 6,
+index 0) — vs a pre-set gate of **≥200 total / ≥100 per class**. Of the fundamentals, only FRED macro
+(→FX/metals/index, ~53 signals) and crypto funding (→crypto, 12) overlap at all; **AV daily sentiment
+has ZERO overlap** (ends 2024-02, signal window starts 2024-10) and **EIA has no oil asset** in the
+universe. So the flow was stopped at Step 1 — no pre-registration, no backtest, no ablation, no registry
+rows (nothing was tested). **Vintage check PASSED (good case):** macro is first-release / point-in-time
+(`output_type=4`), so there is no revision look-ahead to flag. **Transferable findings for the main
+program:** (1) the binding constraint for ANY overlay/filter study on the confluence is *signal count*,
+not data coverage — the setup fires ~30×/yr across 10 assets, so overlays will always be n≈10–50 per
+cell = the regime that gave two false positives here (PR gate n=22, two-zone DRS n≈10 that inverted a
+week later); do not run gate/score studies on it without far more signals. (2) AV sentiment becomes
+usable for crypto/macro overlays only once its backfill reaches ≥2024-10 (N-8 self-advancing, ~days
+away) — but that fixes *overlap*, not the thin-sample problem. (3) point-in-time macro (FRED
+output_type=4) is reusable infrastructure for any future vintage-safe news study. **Recommendation:
+DO NOT INCORPORATE / revisit only if signal breadth materially increases.** _Reversible: n/a (evaluation
+only; live board untouched; branch holds the report)._
+
 ### 2026-10-03 · D-032 · PAUSE the main research program for a scoped Confluence Board fundamentals study
 User-directed digression. The main multi-week signal-research program is **paused (not abandoned)** to
 answer a bounded question about a *different* live system — the **Confluence Board** (the divergence/
