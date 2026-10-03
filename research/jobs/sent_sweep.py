@@ -62,6 +62,24 @@ def append_row(d):
     pd.DataFrame([{k: d.get(k, "") for k in hdr}]).to_csv(REG, mode="a", header=False, index=False)
 
 
+def drop_phase10() -> int:
+    """Remove existing phase-10 rows so they recompute against the CURRENT archive.
+
+    The row id (rule|class|tf|hz|params|n10) does not encode the sentiment span, so a plain re-run
+    would SKIP cells already present — freezing their stats at whatever archive depth first computed
+    them. The archive grows daily during backfill, so the definitive run uses --refresh to recompute.
+    """
+    try:
+        r = pd.read_csv(REG)
+    except Exception:
+        return 0
+    n0 = len(r)
+    r = r[r["phase"].astype(str) != str(PHASE)]
+    if len(r) != n0:
+        r.to_csv(REG, index=False)
+    return n0 - len(r)
+
+
 def main() -> int:
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -72,6 +90,9 @@ def main() -> int:
     ap.add_argument("--max", type=int, default=0)
     ap.add_argument("--alpha", type=float, default=0.05)
     ap.add_argument("--dsr", type=float, default=0.95)
+    ap.add_argument("--refresh", action="store_true",
+                    help="drop existing phase-10 rows first so every cell recomputes against the "
+                         "current (grown) archive — use for the definitive run once backfill completes")
     a = ap.parse_args()
 
     sent = SENT.load_sentiment()
@@ -89,6 +110,9 @@ def main() -> int:
                (sent["instrument_class"] == SENT.CLASS_SENT[c]).any()]
     span = f"{sent['date'].min().date()} .. {sent['date'].max().date()}"
     print(f"sentiment span {span}; classes with data: {classes} (rows: {len(sent)})")
+    if a.refresh:
+        dropped = drop_phase10()
+        print(f"--refresh: dropped {dropped} existing phase-10 rows (recomputing on the current archive)")
 
     done = existing_ids()
     cells = []

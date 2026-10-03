@@ -18,6 +18,10 @@ on:
         description: "max NEW hypotheses this run (resumable; 0=unlimited)"
         required: false
         default: "0"
+      refresh:
+        description: "recompute all phase-10 cells on the CURRENT archive (true) vs resume/skip (false)"
+        required: false
+        default: "true"
 
 permissions:
   contents: write
@@ -59,7 +63,9 @@ jobs:
 
       - name: Run sentiment sweep
         run: |
-          python research/jobs/sent_sweep.py --max "${{ github.event.inputs.max || '0' }}"
+          REFRESH=""
+          if [ "${{ github.event.inputs.refresh || 'true' }}" = "true" ]; then REFRESH="--refresh"; fi
+          python research/jobs/sent_sweep.py --max "${{ github.event.inputs.max || '0' }}" $REFRESH
 
       - name: Open/update results PR
         uses: peter-evans/create-pull-request@v6
