@@ -14,6 +14,7 @@ Only validated components -- no Daily pass, no TD tag, no PR (all disproven).
 from __future__ import annotations
 import bisect
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -29,6 +30,7 @@ from src.v5_divergence import (          # noqa: E402
     fetch_ohlcv, parse_tf_minutes, resample_ohlcv,
 )
 from src.v5_confluence import drs_signals            # noqa: E402
+import fundamentals as FUND               # noqa: E402  (display-only context; never feeds signals)
 import board_health as HEALTH             # noqa: E402  (freshness + keyless crypto spot cross-check)
 
 CFG = yaml.safe_load((ROOT / "config" / "v5_confluence_scanner.yaml").read_text("utf-8"))
@@ -39,7 +41,13 @@ SL_ATR = float(DIV["sl_atr_mult"]); TP_ATR = float(DIV["tp_atr_mult"])
 SMA_LEN = int(DIV["trend_sma"]); MERGE_ATR = 0.75
 FRESH_BARS = 5           # setup counts as "live" if triggered within this many bars
 NEAR_ATR = 1.5           # price within this many ATR of an allowed-dir zone = NEAR
-OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else (ROOT / "logs" / "dashboard_data.js")
+_ARGS = [a for a in sys.argv[1:] if not a.startswith("--")]
+OUT = Path(_ARGS[0]) if _ARGS else (ROOT / "logs" / "dashboard_data.js")
+# Display-only fundamentals context (Track A). ADDITIVE: adds a `context` key per card and never
+# touches the signal path. Default ON; disable with --no-context or FUNDAMENTALS_CONTEXT=0 (used by the
+# byte-identical proof to show the signal output is unchanged).
+CONTEXT_ON = ("--no-context" not in sys.argv) and \
+    (os.environ.get("FUNDAMENTALS_CONTEXT", "1").lower() not in ("0", "false", "no"))
 TF_ORDER = list(TF_CFG)
 
 # Monitor-only WATCHLIST (user's TradingView list). Unvalidated direction, so
@@ -213,6 +221,42 @@ def _nodata_card(asset, tk, allowed, watch, reason):
                 error=reason or "unknown (fetch failed)")
 
 
+def _frame_for(cache, ticker):
+    """Longest cached base frame for a ticker (for the ATR vol-regime). None if absent."""
+    best = None
+    for (tk, _src, _per), frame in cache.items():
+        if tk == ticker and frame is not None and not frame.empty:
+            if best is None or len(frame) > len(best):
+                best = frame
+    return best
+
+
+def _attach_context(out, cache, now):
+    """Attach display-only fundamental context to each card. Purely additive and fully guarded:
+    a failure here can only omit the context key, never alter or remove a signal field."""
+    try:
+        bundle = FUND.load_bundle()
+    except Exception as exc:  # noqa: BLE001
+        print(f"context: bundle load failed ({exc}); skipping context", flush=True); return
+    try:
+        dxy = fetch_ohlcv("DX-Y.NYB", "1d", "1y")     # daily DXY trend for the macro backdrop (1 fetch)
+    except Exception:
+        dxy = None
+    n_ctx = 0
+    for card in out:
+        if card.get("status") == "NODATA":
+            continue                                  # no context for an asset with no data
+        try:
+            pf = _frame_for(cache, card.get("ticker"))
+            card["context"] = FUND.context_vector(card["asset"], card.get("updated", now),
+                                                   price_frame=pf, dxy_frame=dxy, bundle=bundle,
+                                                   horizon_days=5)
+            n_ctx += 1
+        except Exception as exc:  # noqa: BLE001
+            print(f"{card.get('asset','?'):<8} context SKIP ({exc})", flush=True)
+    print(f"context: attached to {n_ctx}/{len(out)} cards (display-only, not validated)", flush=True)
+
+
 def main():
     now = pd.Timestamp.now(tz="UTC").tz_localize(None)
     cache = {}; out = []
@@ -241,9 +285,13 @@ def main():
 
     # ---- freshness + keyless crypto spot cross-check (additive; after signals) ----
     HEALTH.attach_health(out, now)
+    # ---- Track A: attach DISPLAY-ONLY fundamental context (additive; signal fields untouched) ----
+    if CONTEXT_ON:
+        _attach_context(out, cache, now)
 
     nodata = [a["asset"] for a in out if a["status"] == "NODATA"]
     data = {"generated": now.strftime("%Y-%m-%d %H:%M UTC"),
+            "context_enabled": CONTEXT_ON,
             "tf_order": TF_ORDER,
             "counts": {"setup": sum(1 for a in out if a["status"] == "SETUP"),
                        "near": sum(1 for a in out if a["status"] == "NEAR"),
@@ -252,12 +300,12 @@ def main():
                        "stale": sum(1 for a in out if a.get("stale"))},
             "nodata_assets": nodata,
             "assets": out}
+    if nodata:
+        print(f"WARNING: {len(nodata)} asset(s) have NO DATA and render as 'data unavailable': {nodata}", flush=True)
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("window.CONFLUENCE_STATE = " + json.dumps(data, separators=(",", ":")) + ";",
                    encoding="utf-8")
     print(f"\nWrote {OUT}  ({len(out)} assets)")
-    if nodata:
-        print(f"WARNING: {len(nodata)} asset(s) have NO DATA and render as 'data unavailable': {nodata}", flush=True)
     return 0
 
 

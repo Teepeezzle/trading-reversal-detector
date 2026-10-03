@@ -4,6 +4,65 @@ Append-only. Newest at top. Each entry: date · decision · why · reversible?
 
 ---
 
+### 2026-10-03 · D-034 · Fundamentals v1 — reframe to context + forward shadow test + broaden base (milestone gates)
+User-directed follow-up to D-033. We cannot prove "fundamentals improve signals" on the thin sample, so
+we separate *using them correctly now* from *proving value over time*. Three tracks, branch
+`feature/fundamentals-v1` (PR-only; nothing merges to main / touches the live board without approval):
+**(A) context layer** — fundamentals shown on the board as DISPLAY-ONLY context (macro regime, latest
+point-in-time values, next projected event), labelled "Context - not validated", toggleable; zero change
+to the signal path (proven byte-identical, `backtest/test_context_identical.py`). Displaying the backdrop
+is a factual claim, not a statistical one — defensible regardless of sample size. **(B) forward shadow
+test** — log every fresh SETUP with its point-in-time context + three shadow uses (gate/score/tag)
+recorded but never acted on; resolve outcomes; weekly Actions job. **(C) broaden the base** — a separate
+direction-unrestricted eval universe (`config/fundamentals_eval_universe.yaml`, +12 instruments incl.
+WTI/Brent so EIA is finally usable; live scanner config untouched) + a DerSimonian-Laird partial-pooling
+estimator (`backtest/pooled_estimate.py`) that detects a weak-but-consistent effect across cells without
+more data. **MILESTONE GATES (held to):** resolved n=100 = preliminary read (NO verdict); n=200 = first
+significance test WITH multiple-testing correction; n=400 = walk-forward. **Hard rule: do NOT run the
+augmented-vs-baseline backtest until pooled n>=200.** No performance claim is made until then; context is
+explicitly not validated. Transferable to the main program: the forward-log + pooling + point-in-time
+context pattern is how any thin-sample overlay (incl. the N-8 sentiment factor) should be judged.
+_Reversible: yes — all isolated on the feature branch; context is toggleable and additive._
+
+### 2026-10-03 · D-033 · Confluence Board fundamentals study — NOT VIABLE (stopped at viability gate)
+Outcome of the D-032 digression (full report: `research/fundamentals/RESULTS.md`). The question "do
+fundamentals improve the Confluence Board's signals?" **cannot be answered honestly on current data.**
+The Confluence Board is a live *snapshot* (no persisted signal log), so signals are reconstructed by
+the frozen confluence logic over yfinance history (trailing ~730d; 15–45m only ~60d). Measured over
+that window across the whole 10-asset validated universe: **65 signals** (FX 47, crypto 12, metals 6,
+index 0) — vs a pre-set gate of **≥200 total / ≥100 per class**. Of the fundamentals, only FRED macro
+(→FX/metals/index, ~53 signals) and crypto funding (→crypto, 12) overlap at all; **AV daily sentiment
+has ZERO overlap** (ends 2024-02, signal window starts 2024-10) and **EIA has no oil asset** in the
+universe. So the flow was stopped at Step 1 — no pre-registration, no backtest, no ablation, no registry
+rows (nothing was tested). **Vintage check PASSED (good case):** macro is first-release / point-in-time
+(`output_type=4`), so there is no revision look-ahead to flag. **Transferable findings for the main
+program:** (1) the binding constraint for ANY overlay/filter study on the confluence is *signal count*,
+not data coverage — the setup fires ~30×/yr across 10 assets, so overlays will always be n≈10–50 per
+cell = the regime that gave two false positives here (PR gate n=22, two-zone DRS n≈10 that inverted a
+week later); do not run gate/score studies on it without far more signals. (2) AV sentiment becomes
+usable for crypto/macro overlays only once its backfill reaches ≥2024-10 (N-8 self-advancing, ~days
+away) — but that fixes *overlap*, not the thin-sample problem. (3) point-in-time macro (FRED
+output_type=4) is reusable infrastructure for any future vintage-safe news study. **Recommendation:
+DO NOT INCORPORATE / revisit only if signal breadth materially increases.** _Reversible: n/a (evaluation
+only; live board untouched; branch holds the report)._
+
+### 2026-10-03 · D-032 · PAUSE the main research program for a scoped Confluence Board fundamentals study
+User-directed digression. The main multi-week signal-research program is **paused (not abandoned)** to
+answer a bounded question about a *different* live system — the **Confluence Board** (the divergence/
+confluence scanner that auto-refreshes to GitHub Pages): *does incorporating fundamental data improve
+its signals?* Strictly an **evaluation + recommendation**, no deployment; nothing on the live board
+changes without explicit approval (Step 6 gate). **Hard rules for the digression:** work only on branch
+`research/fundamentals-augmentation`; never push to main; do not modify the live Pages output, its
+workflows, or its data pipeline; add the fundamental layer as a parallel/opt-in path (do not rewrite
+existing signal logic); **never interpolate/extrapolate/back-fill** a fundamental value (a missing
+record is a gap, not a guess); all data access read-only; time-boxed — if the Step-1 data audit fails
+the viability gate (<200 signals in the overlap window, or <100 per asset class) or reveals look-ahead
+(revised-to-date not point-in-time fundamentals), **stop early and say so** rather than forcing a
+deliverable. Off-peak Actions left running: the N-8 AV-sentiment harvester continues self-advancing on
+main (D-031) — that is the research program's own job, explicitly left untouched. Outcome will be logged
+here (transferable to the main program). _Reversible: yes — digression is isolated on its own branch;
+RESUME HERE for the main project is pinned at the top of PROJECT_STATE.md._
+
 ### 2026-10-03 · D-031 · Auto-advance the AV sentiment backfill (scoped exception to D-002)
 User directive: "merge tomorrow's archive PR and keep advancing the backfill." The resumable harvester
 only progresses if each day's archive lands on `main` (the next run reads the committed archive from
