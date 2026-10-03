@@ -98,12 +98,13 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
   writes the honest "no data yet" report. **Next: dispatch research-avsentiment-refresh to validate
   ALPHAVANTAGE_API_KEY + seed the backfill; it accrues ~25 windows/day. Run sent_sweep + robustness --phase 10
   once the archive has ~1y depth.** (POLYGON_API_KEY reserved for a later macro feature; unused by N-8.)
-  **Key validated + backfill underway (as of 2026-10-03): archive at 1,087 daily rows, span 2023-01 → 2024-02,
-  ~98 of 138 windows remaining.** Operational loop: the harvester opens an auto-PR on `research/av-sentiment`;
-  **it advances only when that PR is MERGED to main** (the next run reads the archive from main, 25 calls/day cap).
-  Merge each day's archive PR until span reaches ~present, then run `research-sent-sweep` (passes `--refresh` by
-  default → recomputes the full phase-10 grid on the current archive; the row id doesn't encode span, so
-  `--refresh` is required to avoid freezing cells at shallow depth) → `research-robustness phase=10` for the verdict.
+  **Key validated + backfill SELF-ADVANCING (as of 2026-10-03): archive at 1,087 daily rows, span 2023-01 →
+  2024-02, ~98 of 138 windows remaining.** The daily cron harvests ~20 windows AND now auto-squash-merges its
+  own `research/av-sentiment` data-archive PR (D-031) — so the backfill advances to ~present (~5 days) with no
+  manual merge. (Scoped exception to D-002, data-only; all CODE still lands via human-merged PRs.) When the span
+  reaches ~present, run `research-sent-sweep` (passes `--refresh` by default → recomputes the full phase-10 grid
+  on the current archive; the row id doesn't encode span, so `--refresh` avoids freezing cells at shallow depth)
+  → `research-robustness phase=10` for the verdict. The SWEEP stays a deliberate act, not automated.
 - ⬜ **T-501** 60/20/20 split + walk-forward; holdout touched ONCE at the end.
 - ⬜ **T-601** 4-week forward paper test; log every signal taken or not.
 - ⬜ **T-701** Scanner + signal spec + daily morning routine.
