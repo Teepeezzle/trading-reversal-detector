@@ -122,6 +122,17 @@ h1{font-size:23px;font-weight:700;margin:0;letter-spacing:.2px}
 .ctx .chip{font-size:11px;padding:2px 7px;border-radius:5px;background:var(--panel2);border:1px solid var(--bd);font-family:"IBM Plex Mono",monospace}
 .ctx .chip.evt{color:var(--amber);border-color:color-mix(in srgb,var(--amber) 40%,transparent);font-family:inherit}
 .ctx .stale{color:var(--mut2);font-style:italic}
+/* per-asset fundamental trend */
+.ftbias{font-size:14px;font-weight:700;letter-spacing:.02em}
+.ftbias.bull{color:var(--up)} .ftbias.bear{color:var(--down)} .ftbias.neu{color:var(--mut)}
+.ftbias .fts{font-size:11px;font-weight:600;color:var(--mut2)}
+.ftdr{font-size:11.5px;color:var(--mut)}
+.ftcs{display:flex;flex-direction:column;gap:2px;margin:2px 0}
+.ftc{font-size:11.5px;color:var(--tx)}
+.ftc .ftd{color:var(--mut)} .ftc .ftw{color:var(--mut2);font-size:10px;font-family:"IBM Plex Mono",monospace}
+.ftc.exc{color:var(--mut2);font-style:italic}
+.ftlg{font-size:11px;color:var(--mut);font-style:italic}
+.ftx{font-size:10.5px;color:var(--mut2)}
 body.ctx-off .ctx{display:none}
 .toggle{display:inline-flex;align-items:center;gap:8px;cursor:pointer;border:1px solid var(--bd2);background:var(--panel);
   border-radius:999px;padding:6px 12px;font:600 12px/1 "IBM Plex Sans",sans-serif;color:var(--tx);box-shadow:var(--shadow)}
@@ -221,27 +232,28 @@ function setupBox(a){
     <div class="ett"><span>entry</span><b>${fmt(s.entry)}</b><span>SL</span><b>${fmt(s.stop)}</b><span>TP</span><b>${fmt(s.target)}</b></div>
   </div>`;
 }
+function ftArrow(d){ return d==="↑"?`<span style="color:var(--up)">↑</span>`:d==="↓"?`<span style="color:var(--down)">↓</span>`:`<span style="color:var(--mut2)">→</span>`; }
 function ctxBox(a){
-  const c=a.context; if(!c) return "";               // only when the generator attached context
-  const m=c.macro_regime||{}, v=c.vol_regime||{}, ne=c.next_event;
-  const macro=[
-    (m.rates_dir&&m.rates_dir!=="na")?`rates <b>${esc(m.rates_dir)}</b>`:null,
-    (m.inflation_dir&&m.inflation_dir!=="na")?`infl <b>${esc(m.inflation_dir)}</b>${m.inflation_yoy_pct!=null?` (${m.inflation_yoy_pct}%)`:""}`:null,
-    (m.usd_backdrop&&m.usd_backdrop!=="na")?`USD <b>${esc(m.usd_backdrop)}</b>`:null,
-    (m.dxy_trend&&m.dxy_trend!=="na")?`DXY <b>${esc(m.dxy_trend)}</b>`:null,
-    (v.regime&&v.regime!=="na")?`vol <b>${esc(v.regime)}</b>`:null
-  ].filter(Boolean).join(" · ");
-  const vals=(c.latest_values||[]).map(x=>{
-    const val=(x.value==null)?"—":x.value;
-    const sp=(x.surprise!=null)?` <span style="color:${x.surprise>0?'var(--up)':'var(--down)'}">${x.surprise>0?'+':''}${x.surprise}</span>`:"";
-    const st=x.stale?` <span class="stale">(stale ${Math.round(x.age_days)}d)</span>`:"";
-    return `<span class="chip">${esc(x.name)}: <b>${val}</b>${sp}${st}</span>`;
-  }).join("");
-  const evt=ne?`<span class="chip evt" title="projected from release cadence; not a confirmed schedule">next ${esc(ne.name)} ~${esc((ne.expected_at||'').slice(0,10))}${ne.within_horizon?" ⚠ in-horizon":""}</span>`:"";
+  const c=a.context; if(!c) return "";
+  const t=c.fundamental_trend; const ne=c.next_event;
+  if(!t) return "";                                   // per-asset fundamental trend is the context now
+  const biasCls = t.bias==="BULLISH"?"bull":t.bias==="BEARISH"?"bear":"neu";
+  const comps=(t.components||[]).map(x=> x.used
+    ? `<div class="ftc">${ftArrow(x.dir)} <b>${esc(x.name)}</b> <span class="ftd">${esc(x.detail)}</span> <span class="ftw">${esc((x.available_at||'').slice(0,10))}</span></div>`
+    : `<div class="ftc exc">— ${esc(x.name)} <span class="ftd">excluded</span></div>`
+  ).join("");
+  const excl=(t.excluded&&t.excluded.length)
+    ? `<div class="ftx">Excluded: ${t.excluded.map(e=>esc(e.name)+" ("+esc(e.reason)+")").join("; ")}</div>`
+    : `<div class="ftx">Excluded: none</div>`;
+  const evt=ne?`<div class="crow"><span class="chip evt" title="projected from release cadence; not a confirmed schedule">next ${esc(ne.name)} ~${esc((ne.expected_at||'').slice(0,10))}${ne.within_horizon?" ⚠ in-horizon":""}</span></div>`:"";
   return `<div class="ctx">
-    <span class="ctag" title="Displayed context only — makes no claim about outcomes; sample too thin to validate (see forward test)">Context — not validated</span>
-    ${macro?`<div class="crow">${macro}</div>`:""}
-    ${(vals||evt)?`<div class="crow">${vals}${evt}</div>`:""}
+    <span class="ctag" title="A factual read of this asset's own fundamentals — not a prediction, not validated, not a signal">${esc(t.label||"FUNDAMENTAL TREND — NOT VALIDATED")}</span>
+    <div><span class="ftbias ${biasCls}">${esc(t.bias)}</span> <span class="fts">(${esc(t.strength)})</span></div>
+    ${t.driver?`<div class="ftdr">Driver: ${esc(t.driver)}</div>`:""}
+    <div class="ftcs">${comps}</div>
+    ${t.logic?`<div class="ftlg">${esc(t.logic)}</div>`:""}
+    ${excl}
+    ${evt}
   </div>`;
 }
 function freshChip(a){

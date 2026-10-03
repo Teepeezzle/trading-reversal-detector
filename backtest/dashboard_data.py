@@ -31,6 +31,7 @@ from src.v5_divergence import (          # noqa: E402
 )
 from src.v5_confluence import drs_signals            # noqa: E402
 import fundamentals as FUND               # noqa: E402  (display-only context; never feeds signals)
+import fundtrend as FT                     # noqa: E402  (per-asset fundamental trend; display-only)
 import board_health as HEALTH             # noqa: E402  (freshness + keyless crypto spot cross-check)
 
 CFG = yaml.safe_load((ROOT / "config" / "v5_confluence_scanner.yaml").read_text("utf-8"))
@@ -242,19 +243,29 @@ def _attach_context(out, cache, now):
         dxy = fetch_ohlcv("DX-Y.NYB", "1d", "1y")     # daily DXY trend for the macro backdrop (1 fetch)
     except Exception:
         dxy = None
-    n_ctx = 0
+    try:
+        mkt = FT.market_data(fetch_ohlcv)             # reachable Yahoo macro series, fetched once
+    except Exception as exc:  # noqa: BLE001
+        print(f"fundtrend: market data unavailable ({exc})", flush=True); mkt = {}
+    n_ctx = 0; excl_log = []
     for card in out:
         if card.get("status") == "NODATA":
             continue                                  # no context for an asset with no data
         try:
             pf = _frame_for(cache, card.get("ticker"))
-            card["context"] = FUND.context_vector(card["asset"], card.get("updated", now),
-                                                   price_frame=pf, dxy_frame=dxy, bundle=bundle,
-                                                   horizon_days=5)
+            asof = card.get("updated", now)
+            ctx = FUND.context_vector(card["asset"], asof, price_frame=pf, dxy_frame=dxy,
+                                      bundle=bundle, horizon_days=5)
+            ctx["fundamental_trend"] = FT.fundamental_trend(card["asset"], asof, bundle, mkt)   # per-asset
+            card["context"] = ctx
             n_ctx += 1
+            for e in ctx["fundamental_trend"].get("excluded", []):
+                excl_log.append(f"{card['asset']}: {e['name']} ({e['reason']})")
         except Exception as exc:  # noqa: BLE001
             print(f"{card.get('asset','?'):<8} context SKIP ({exc})", flush=True)
-    print(f"context: attached to {n_ctx}/{len(out)} cards (display-only, not validated)", flush=True)
+    print(f"context: attached to {n_ctx}/{len(out)} cards (per-asset fundamental trend; display-only, not validated)", flush=True)
+    if excl_log:
+        print(f"fundtrend exclusions ({len(excl_log)}): " + " | ".join(excl_log[:40]), flush=True)
 
 
 def main():
