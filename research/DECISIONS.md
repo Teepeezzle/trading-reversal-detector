@@ -4,6 +4,30 @@ Append-only. Newest at top. Each entry: date · decision · why · reversible?
 
 ---
 
+### 2026-10-04 · D-035 · RESUME main program — carry forward 4 learnings from the Confluence Board digression
+The board digression (D-032..D-034) surfaced four lessons now folded into the main research program as
+standing rules:
+1. **Thin-sample discipline.** Fundamental augmentation could not be validated at n≈12–47 per cell — the
+   same small-sample regime that gave this project two false positives (two-zone DRS, PR gate). **Rule:**
+   no fundamental/overlay factor gets a verdict from thin per-cell samples; require pooled estimation
+   across instruments (DerSimonian-Laird or equivalent) AND a minimum n (≥100 per cell, or pooled ≥200)
+   before judging. Applies to the Phase-10 sentiment factor and any future fundamental factor.
+2. **Staleness rule (per-type max-age; exclude, never carry).** The board displayed `news_sentiment` 825
+   days stale. The research pipeline had the SAME latent bug: `sentfactor.enrich` did a backward
+   `merge_asof` with no age cap, so bars past the archive would get the last (arbitrarily stale)
+   sentiment. **Fixed now:** `sentfactor.enrich` caps at `max_age_days=7` (merge_asof `tolerance`) →
+   stale = NaN = no trade; `news.latest_asof` gains an optional `max_age_days` (default None preserves
+   completed phases; use ~45d for monthly macro going forward). No value is ever used beyond its max-age.
+3. **Per-asset fundamental direction is a reusable component, logged not assumed.** The board's per-asset
+   fundamental-trend logic (`backtest/fundtrend.py`) is registered in HYPOTHESIS_REGISTRY.csv as a
+   **Phase-11 pending** hypothesis (`fund_direction`) — to be judged by the full gauntlet (net cost,
+   no-lookahead, ≥100 trades / pooled, MTC, 2× cost, benchmarks) like any factor, never assumed to work.
+4. **Fail loud, never silent.** The board dropped assets silently on fetch failure. **Rule:** the
+   research pipeline flags/logs every data gap. `sentfactor` now prints `SKIP <class>/<sym>` on a failed
+   load (a missing symbol is a visible gap, not clean data); data-refresh already logs to BLOCKERS. The
+   rule applies pipeline-wide.
+_Reversible: yes (rules are tunable); the staleness cap is a strict no-lookahead/no-stale improvement._
+
 ### 2026-10-03 · D-034 · Fundamentals v1 — reframe to context + forward shadow test + broaden base (milestone gates)
 User-directed follow-up to D-033. We cannot prove "fundamentals improve signals" on the thin sample, so
 we separate *using them correctly now* from *proving value over time*. Three tracks, branch

@@ -2,20 +2,24 @@
 
 > Read this file first every session. Resume from "Next", state a 3-line plan, then work.
 
-## ⏸ PAUSED 2026-10-03 — scoped digression (Confluence Board fundamentals study)
-This multi-week project is **paused, not abandoned**, for a scoped evaluation: *does incorporating
-fundamental data improve the live Confluence Board's signals?* (backtest + report only, no deployment).
-Work is isolated on branch `research/fundamentals-augmentation`; main research branch/data untouched;
-off-peak Actions left running (the N-8 AV-sentiment harvester keeps self-advancing on main per D-031).
-See **D-032**. Digression deliverable = `research/fundamentals/RESULTS.md`.
+## ▶ RESUMED 2026-10-04 — main program active (board digression closed)
+The Confluence Board digression is complete (D-032..D-034): data-integrity fixes shipped, fundamentals
+context + per-asset fundamental-trend live. Four learnings folded back in as **D-035** (thin-sample →
+pooled/min-n; per-type staleness cap; per-asset direction registered as Phase-11 pending; fail-loud).
+Off-peak pipeline healthy: data-refresh / sweep / avsentiment-refresh / newsdata-collect all firing +
+succeeding; nightly sweep **idle** ("0 new, 220 already-done" — Phase-3 grid exhausted).
 
-> **RESUME HERE (main project, after the digression resolves):** N-8 / Phase 10 is built and merged; the
-> AV daily-sentiment backfill is **self-advancing** (D-031) — the 05:45 UTC cron harvests ~20 windows/day
-> AND auto-squash-merges its archive PR to main. As of 2026-10-03 the archive is at **1,087 rows, span
-> 2023-01 → 2024-02** (~98 of 138 windows remaining; ~5 days to ~present). **Exact next action:** once the
-> span reaches ~present, dispatch `research-sent-sweep` (runs `--refresh`) → then `research-robustness`
-> with `phase=10`, and report the Phase-10 verdict. Nothing else is in flight. Program tally: 2,120
-> hypotheses across Phases 3–9, 0 deployable edges; CANDIDATES.md empty.
+> **RESUME HERE (main project):** The only live research thread is **Phase 10 / N-8 (AV sentiment
+> factor)**. The AV backfill is self-advancing (D-031) — as of 2026-10-04 at **1,473 rows, span
+> 2023-01 → 2024-06** (~18 mo; ~4 cron-days from present). **Staleness bug fixed (D-035 #2):**
+> `sentfactor.enrich` now caps sentiment at 7 days → bars past the archive get NaN (no trade), never a
+> stale value — this is required for a valid sweep. **Exact next action:** (1) let the backfill reach
+> ~present (keep dispatching `research-avsentiment-refresh` daily); (2) run `research-sent-sweep`
+> (`--refresh`) → merge its results PR → `research-robustness phase=10` → report the verdict. A
+> PRELIMINARY sweep may be run now (18-mo overlap) to validate the never-run phase-10 pipeline — mark it
+> non-final (cells likely THIN). **Also:** Phase-11 `fund_direction` factor registered (pending) — build
+> + gauntlet it with pooled estimation (D-035 #1/#3). Program tally: 2,121 hypotheses, **0 deployable
+> edges**, CANDIDATES.md empty.
 
 **Mission:** rules-based, out-of-sample-validated, cost-aware signal system for
 INTRADAY (open→same-session close) and SHORT SWING (≤5 trading days) across
