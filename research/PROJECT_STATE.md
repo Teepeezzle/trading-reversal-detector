@@ -10,15 +10,17 @@ Off-peak pipeline healthy: data-refresh / sweep / avsentiment-refresh / newsdata
 succeeding; nightly sweep **idle** ("0 new, 220 already-done" — Phase-3 grid exhausted).
 
 > **RESUME HERE (main project):** The only live research thread is **Phase 10 / N-8 (AV sentiment
-> factor)**. The AV backfill is self-advancing (D-031) — as of 2026-10-04 at **1,473 rows, span
-> 2023-01 → 2024-06** (~18 mo; ~4 cron-days from present). **Staleness bug fixed (D-035 #2):**
-> `sentfactor.enrich` now caps sentiment at 7 days → bars past the archive get NaN (no trade), never a
-> stale value — this is required for a valid sweep. **Exact next action:** (1) let the backfill reach
-> ~present (keep dispatching `research-avsentiment-refresh` daily); (2) run `research-sent-sweep`
-> (`--refresh`) → merge its results PR → `research-robustness phase=10` → report the verdict. A
-> PRELIMINARY sweep may be run now (18-mo overlap) to validate the never-run phase-10 pipeline — mark it
-> non-final (cells likely THIN). **Also:** Phase-11 `fund_direction` factor registered (pending) — build
-> + gauntlet it with pooled estimation (D-035 #1/#3). Program tally: 2,121 hypotheses, **0 deployable
+> factor)**. **Staleness bug fixed (D-035 #2):** `sentfactor.enrich` caps at 7 days → stale = NaN = no
+> trade (required for a valid sweep). **PRELIMINARY phase-10 sweep RUN 2026-10-04 and the never-run
+> pipeline is validated end-to-end** (sent_sweep → phase-10 registry → `robustness phase=10`): on the
+> 18-mo overlap (sentiment then to 2024-06), 360 cells → 323 THIN / 25 FAIL / 12 base-PASS →
+> gauntlet **N=37, survivors=0 → 0 candidates**. Honest + consistent; NOT final (short overlap, thin N).
+> The backfill is self-advancing (D-031) — now at **2,044 rows, span 2023-01 → 2025-01** (~3 cron-days
+> from present). **Exact next action:** (1) let `research-avsentiment-refresh` reach ~present (dispatch
+> daily to speed it); (2) re-run `research-sent-sweep` (`--refresh` recomputes all phase-10 cells on the
+> full archive) → merge results PR → `research-robustness phase=10` → **final** verdict. **Also:**
+> Phase-11 `fund_direction` factor registered (pending) — build + gauntlet with pooled estimation
+> (D-035 #1/#3). Program tally: **~2,480 hypotheses (incl. 360 preliminary phase-10), 0 deployable
 > edges**, CANDIDATES.md empty.
 
 **Mission:** rules-based, out-of-sample-validated, cost-aware signal system for
