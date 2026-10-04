@@ -59,10 +59,12 @@ def load(path) -> pd.DataFrame:
     return df
 
 
-def latest_asof(bars: pd.DataFrame, news: pd.DataFrame, names=None) -> pd.DataFrame:
+def latest_asof(bars: pd.DataFrame, news: pd.DataFrame, names=None, max_age_days=None) -> pd.DataFrame:
     """For each bar, attach the most recent news item KNOWN at the bar open (first_available_at <=
     time). No-lookahead. Returns bars + columns: news_name, news_surprise, news_age_h. `names` filters
-    to specific event names (e.g. ['CPI','NFP'])."""
+    to specific event names (e.g. ['CPI','NFP']). If `max_age_days` is set, a release older than that
+    cap is EXCLUDED (NaN) rather than carried stale (per-type staleness rule; carry-forward learning #2 —
+    e.g. ~45d for monthly CPI/NFP). Default None preserves prior behaviour for completed phases."""
     if bars.empty:
         return bars
     b = bars.sort_values("time").reset_index(drop=True)
@@ -76,8 +78,9 @@ def latest_asof(bars: pd.DataFrame, news: pd.DataFrame, names=None) -> pd.DataFr
     if n.empty:
         b["news_name"] = np.nan; b["news_surprise"] = np.nan; b["news_age_h"] = np.nan
         return b
+    tol = pd.Timedelta(days=max_age_days) if max_age_days else None
     m = pd.merge_asof(b, n[["first_available_at", "name", "surprise"]],
-                      left_on="time", right_on="first_available_at", direction="backward")
+                      left_on="time", right_on="first_available_at", direction="backward", tolerance=tol)
     m["news_name"] = m["name"]; m["news_surprise"] = m["surprise"]
     m["news_age_h"] = (m["time"] - m["first_available_at"]).dt.total_seconds() / 3600.0
     return m.drop(columns=["name", "surprise", "first_available_at"])

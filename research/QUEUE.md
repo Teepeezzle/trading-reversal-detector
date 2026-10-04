@@ -105,6 +105,22 @@ Status legend: ⬜ todo · 🔵 in-progress · ✅ done · ⛔ blocked
   reaches ~present, run `research-sent-sweep` (passes `--refresh` by default → recomputes the full phase-10 grid
   on the current archive; the row id doesn't encode span, so `--refresh` avoids freezing cells at shallow depth)
   → `research-robustness phase=10` for the verdict. The SWEEP stays a deliberate act, not automated.
+  **UPDATE 2026-10-04 (D-035 #2): staleness bug FIXED** — `sentfactor.enrich` now caps at 7d
+  (`merge_asof tolerance`); bars past the archive get NaN (no trade), never stale sentiment. Required
+  before any valid sweep. Backfill now at **1,473 rows / 2023-01 → 2024-06** (~4 cron-days from present).
+
+## Resumed work (2026-10-04) — the only live threads; baseline grids (Phases 3–8) are EXHAUSTED (0 edges)
+- 🔵 **N-8 / Phase 10 — sentiment sweep.** Next off-peak: keep `research-avsentiment-refresh` advancing
+  daily; a PRELIMINARY `research-sent-sweep` may validate the pipeline now (18-mo overlap, mark non-final);
+  the REAL sweep + `research-robustness phase=10` verdict runs once span ≈ present.
+- ⬜ **N-9 / Phase 11 — `fund_direction` factor.** Port the board's per-asset fundamental-trend logic
+  (`backtest/fundtrend.py`) to a research factor: no-lookahead + per-type staleness (D-035 #2), as a
+  gate/regime-tag/standalone; judge via the gauntlet with **pooled estimation across instruments** +
+  min-n (D-035 #1). Registered in HYPOTHESIS_REGISTRY.csv (phase 11, `survived=pending`). Build the
+  factor module + a `fund_sweep.py` + robustness phase-11 path, then run. NOT assumed to work.
+- ℹ️ **Off-peak idle is EXPECTED:** the single-factor/combo/family/cross-sectional/alt grids (Phases 3–8)
+  are fully swept — nightly sweep reports "0 new". No new baseline hypotheses to queue; the live work is
+  N-8 (data-gated) + N-9 (build). The nightly sweep can be left running (idempotent) or paused until N-9.
 - ⬜ **T-501** 60/20/20 split + walk-forward; holdout touched ONCE at the end.
 - ⬜ **T-601** 4-week forward paper test; log every signal taken or not.
 - ⬜ **T-701** Scanner + signal spec + daily morning routine.

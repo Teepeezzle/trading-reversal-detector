@@ -44,8 +44,14 @@ def class_series(sent: pd.DataFrame, aclass: str) -> pd.DataFrame:
     return s.reset_index(drop=True)
 
 
-def enrich(bars: pd.DataFrame, sent_sub: pd.DataFrame, zwin: int = 20) -> pd.DataFrame:
-    """Attach no-lookahead sentiment to bars: day-D sentiment is available only from D+1 (asof backward)."""
+MAX_AGE_DAYS = 7          # per-type staleness cap (sentiment): older than this => EXCLUDED, never used
+
+
+def enrich(bars: pd.DataFrame, sent_sub: pd.DataFrame, zwin: int = 20, max_age_days: int = MAX_AGE_DAYS) -> pd.DataFrame:
+    """Attach no-lookahead sentiment to bars: day-D sentiment is available only from D+1 (asof backward),
+    AND only if it is fresher than `max_age_days` (merge_asof `tolerance`). A bar whose nearest available
+    sentiment is older than the cap gets NaN (no trade) — never a stale value used as if current. This is
+    the research-side fix for the board's 825-day staleness bug (carry-forward learning #2)."""
     df = bars.sort_values("time").reset_index(drop=True)
     if sent_sub is None or sent_sub.empty:
         df["sent"] = np.nan; df["sent_z"] = np.nan; return df
@@ -54,7 +60,7 @@ def enrich(bars: pd.DataFrame, sent_sub: pd.DataFrame, zwin: int = 20) -> pd.Dat
     s = s.sort_values("avail")
     s["sent_z"] = ind.zscore(s["sent_wmean"], zwin)         # rolling z over trailing days
     m = pd.merge_asof(df, s[["avail", "sent_wmean", "sent_z"]], left_on="time", right_on="avail",
-                      direction="backward")
+                      direction="backward", tolerance=pd.Timedelta(days=max_age_days))   # stale => NaN
     df["sent"] = m["sent_wmean"].values
     df["sent_z"] = m["sent_z"].values
     return df
@@ -97,8 +103,8 @@ def pooled_val_sent(lake, aclass, rule, params, horizon, tf, cost_mult=1.0, sent
     for sym in F.get_symbols(aclass):
         try:
             df = F.load(lake, aclass, sym, tf)
-        except Exception:
-            continue
+        except Exception as exc:  # noqa: BLE001  fail LOUD — a missing symbol is a visible gap, not clean data
+            print(f"sentfactor: SKIP {aclass}/{sym} {tf} ({exc})", flush=True); continue
         df = enrich(df, ss)
         tr, _, _ = _run(df, rule_fn, params, horizon, c)
         if not tr.empty:
@@ -113,8 +119,8 @@ def evaluate_sent(lake, aclass, rule, params, horizon, tf, cost_mult=1.0, rc_ite
     for sym in F.get_symbols(aclass):
         try:
             df = F.load(lake, aclass, sym, tf)
-        except Exception:
-            continue
+        except Exception as exc:  # noqa: BLE001  fail LOUD — a missing symbol is a visible gap, not clean data
+            print(f"sentfactor: SKIP {aclass}/{sym} {tf} ({exc})", flush=True); continue
         df = enrich(df, ss)
         tr, direction, atr = _run(df, rule_fn, params, horizon, c)
         if not tr.empty:
