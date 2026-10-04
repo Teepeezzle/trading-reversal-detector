@@ -6,7 +6,12 @@ name: Research — AV Sentiment Harvest / N-8 (off-peak)
 # Needs the ALPHAVANTAGE_API_KEY secret. Lands the archive as a PR.
 on:
   schedule:
-    - cron: "45 5 * * *"      # 05:45 UTC daily
+    # Three tries/day for reliable daily advancement (GitHub's scheduler often skips a single time).
+    # Self-limiting: the free AV tier is ~25 req/day, so once a day's quota is used the later runs
+    # hit the rate-limit note and stop (no-op); together they use the full daily quota + catch skips.
+    - cron: "45 5 * * *"      # 05:45 UTC
+    - cron: "45 13 * * *"     # 13:45 UTC (retry / use remaining quota)
+    - cron: "45 21 * * *"     # 21:45 UTC (retry / use remaining quota)
   workflow_dispatch:
     inputs:
       start:
