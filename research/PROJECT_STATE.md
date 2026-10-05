@@ -9,19 +9,24 @@ pooled/min-n; per-type staleness cap; per-asset direction registered as Phase-11
 Off-peak pipeline healthy: data-refresh / sweep / avsentiment-refresh / newsdata-collect all firing +
 succeeding; nightly sweep **idle** ("0 new, 220 already-done" — Phase-3 grid exhausted).
 
-> **RESUME HERE (main project):** The only live research thread is **Phase 10 / N-8 (AV sentiment
-> factor)**. **Staleness bug fixed (D-035 #2):** `sentfactor.enrich` caps at 7 days → stale = NaN = no
-> trade (required for a valid sweep). **PRELIMINARY phase-10 sweep RUN 2026-10-04 and the never-run
-> pipeline is validated end-to-end** (sent_sweep → phase-10 registry → `robustness phase=10`): on the
-> 18-mo overlap (sentiment then to 2024-06), 360 cells → 323 THIN / 25 FAIL / 12 base-PASS →
-> gauntlet **N=37, survivors=0 → 0 candidates**. Honest + consistent; NOT final (short overlap, thin N).
-> The backfill is self-advancing (D-031) — now at **2,044 rows, span 2023-01 → 2025-01** (~3 cron-days
-> from present). **Exact next action:** (1) let `research-avsentiment-refresh` reach ~present (dispatch
-> daily to speed it); (2) re-run `research-sent-sweep` (`--refresh` recomputes all phase-10 cells on the
-> full archive) → merge results PR → `research-robustness phase=10` → **final** verdict. **Also:**
-> Phase-11 `fund_direction` factor registered (pending) — build + gauntlet with pooled estimation
-> (D-035 #1/#3). Program tally: **~2,480 hypotheses (incl. 360 preliminary phase-10), 0 deployable
-> edges**, CANDIDATES.md empty.
+## ✅ PHASE 10 (N-8 AV sentiment) COMPLETE 2026-10-05 — 0 candidates (FINAL)
+AV backfill reached present (**2,847 rows, span 2023-01 → 2026-10-05**, all 5 classes). FINAL sweep
+`--refresh`-recomputed all 360 cells on the full 3.75-yr archive → **305 THIN / 39 FAIL / 16 base-PASS**
+→ gauntlet `robustness phase=10`: **N=55 valid tests, 16 base-PASS, survivors=0 → 0 candidates.** The
+highest-expR cells (oil/crypto sent rules, expR 1.0–2.0) are all **THIN (n=2–51) = small-sample noise**,
+correctly excluded from MTC (board learning #1 in action). Staleness cap (D-035 #2) held — stale
+sentiment never traded. News-sentiment behaves like every other factor: a modest base-gate pass that
+dies under multiple-testing correction. Holdout NEVER touched.
+
+> **RESUME HERE (main project):** Phase 10 is done (0 candidates). **PROGRAM TALLY: ~2,840 hypotheses
+> across Phases 3–10, 0 deployable edges; CANDIDATES.md empty.** The honest result stands: no robust
+> short-horizon edge found in this $0/free-data universe under this gauntlet — across price factors,
+> combos, regimes, cross-sectional, deep data, crypto funding, news gates, and now sentiment. **Two
+> remaining options (your call):** (A) **Phase 11 — build + gauntlet `fund_direction`** (the board's
+> per-asset fundamental-trend factor, registered pending; judge with POOLED estimation + min-n per
+> D-035 #1/#3) — the last structurally-distinct untested idea; or (B) **conclude the search** and write
+> the program's final negative report (a legitimate, valuable outcome per the honesty clause). The AV
+> harvester now just keeps the current month fresh (3×/day cron — can dial to 1×/day to save minutes).
 
 **Mission:** rules-based, out-of-sample-validated, cost-aware signal system for
 INTRADAY (open→same-session close) and SHORT SWING (≤5 trading days) across
