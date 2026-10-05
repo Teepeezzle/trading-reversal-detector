@@ -9,6 +9,13 @@ pooled/min-n; per-type staleness cap; per-asset direction registered as Phase-11
 Off-peak pipeline healthy: data-refresh / sweep / avsentiment-refresh / newsdata-collect all firing +
 succeeding; nightly sweep **idle** ("0 new, 220 already-done" — Phase-3 grid exhausted).
 
+## 🏁 PROGRAM CONCLUDED 2026-10-05 — no robust free-data short-horizon edge found (D-036)
+**Final deliverable: [`research/FINAL_REPORT.md`](FINAL_REPORT.md).** 2,479 hypotheses across Phases
+3–10, 231 base-gate PASSes, **0 survived the gauntlet → 0 candidates.** Honest negative result. Holdout
+NEVER touched (reserved for one clean confirmation if a credible candidate ever arises). Infrastructure
+kept + reusable; off-peak jobs to be wound down (no remaining work). Reopen only with paid data, a longer
+horizon, or Phase-11 `fund_direction` (registered, pending). The sections below are the historical log.
+
 ## ✅ PHASE 10 (N-8 AV sentiment) COMPLETE 2026-10-05 — 0 candidates (FINAL)
 AV backfill reached present (**2,847 rows, span 2023-01 → 2026-10-05**, all 5 classes). FINAL sweep
 `--refresh`-recomputed all 360 cells on the full 3.75-yr archive → **305 THIN / 39 FAIL / 16 base-PASS**
