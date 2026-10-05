@@ -4,6 +4,21 @@ Append-only. Newest at top. Each entry: date · decision · why · reversible?
 
 ---
 
+### 2026-10-05 · D-036 · CONCLUDE the free-data short-horizon search — final negative report
+User decision after the Phase-10 (AV sentiment) final verdict. The program has tested **2,479
+hypotheses** across every structurally-distinct approach (Phases 3–10: single factors, combos×gates,
+power boosts, new families, cross-sectional, deep HistData, crypto funding, news gates, sentiment) and
+**0 survived the full gauntlet** (net cost, no-lookahead, ≥100 trades, 60/20/20, beat benchmarks, 2×
+cost, parameter sensitivity, Bonferroni, Deflated Sharpe). 231 base-gate PASSes, 0 candidates. The
+strongest base-gate results of the whole program were the Phase-10 crypto sentiment cells (Sharpe
+≈0.34/0.29, n≈200+) — still deflated below significance by the trial correction. Per the honesty clause,
+**a documented negative result is the correct, valuable outcome** — no robust short-horizon edge exists
+in this $0/free-data universe under this gauntlet. **Deliverable:** `research/FINAL_REPORT.md`. **Holdout
+NEVER touched** — reserved for one clean confirmation if a credible candidate ever arises (paid data,
+longer horizon, or Phase-11 `fund_direction`). Infrastructure (registry, gauntlet, sealed holdout) is
+kept — reusable if budget/horizon changes. Off-peak pipeline should wind down (no remaining work).
+_Reversible: yes — the search can reopen with new data/horizon; nothing is deleted._
+
 ### 2026-10-04 · D-035 · RESUME main program — carry forward 4 learnings from the Confluence Board digression
 The board digression (D-032..D-034) surfaced four lessons now folded into the main research program as
 standing rules:
