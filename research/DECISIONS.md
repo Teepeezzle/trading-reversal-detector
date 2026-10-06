@@ -4,6 +4,20 @@ Append-only. Newest at top. Each entry: date · decision · why · reversible?
 
 ---
 
+### 2026-10-06 · D-037 · Keep the AV sentiment archive current on a 1×/day cron (search concluded, board still reads it)
+User directive after D-036: the committed sentiment archive (`research/altdata_committed/news/
+av_sentiment.csv.gz`) "is to be kept current." The research *search* is concluded, so the harvester no
+longer advances a backfill — but the **live Confluence Board's context layer** (fundamentals / fundtrend)
+still reads this archive, so it must not go stale. **Decision:** re-enable `research-avsentiment-refresh`
+and cut it from 3×/day (the old backfill cadence) to **1×/day** (05:45 UTC), keep-current only. The
+harvester is resumable (a scheduler-skipped day is caught up on the next run) and self-limiting against the
+~25 req/day free tier, so one run/day is enough and stays well under quota. The D-031 auto-merge of the
+bot's data-archive PR is retained (the next run only sees the latest archive once it is on main). The other
+three research crons (`data-refresh`, `sweep`, `newsdata-collect`) stay DISABLED — they have no remaining
+work; every other `Research —` workflow is dispatch-only (no cron) and costs nothing idle, so left as-is.
+The live board and V5 scanners are untouched. _Reversible: yes — `gh workflow disable` stops it; nothing
+is deleted._
+
 ### 2026-10-05 · D-036 · CONCLUDE the free-data short-horizon search — final negative report
 User decision after the Phase-10 (AV sentiment) final verdict. The program has tested **2,479
 hypotheses** across every structurally-distinct approach (Phases 3–10: single factors, combos×gates,
