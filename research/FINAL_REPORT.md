@@ -127,6 +127,8 @@ it. Keep the infrastructure (it is reusable and cheap): if the budget or horizon
 the gauntlet, and the sealed holdout are ready to test the next idea properly. The most valuable output
 of this program is the discipline that produced an honest "no," not a fabricated "yes."
 
-_Off-peak pipeline: with the search concluded, the nightly sweeps / data-refresh and the 3×/day AV
-harvester have no remaining work — they should be wound down to stop consuming Actions minutes (the
-backfill is complete; only a 1×/day refresh is needed if the archive is to be kept current at all)._
+_Off-peak pipeline (final state, D-037): with the search concluded, the three sweep/collect crons
+(`research-sweep`, `research-data-refresh`, `research-newsdata-collect`) are **disabled** — no remaining
+work. The AV sentiment harvester is **kept at 1×/day** (down from the 3×/day backfill cadence): the
+backfill is complete, but the live board's context layer still reads the committed archive, so it is kept
+current. Every other `Research —` workflow is dispatch-only (no cron) and costs nothing idle._

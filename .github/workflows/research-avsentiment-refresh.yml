@@ -2,16 +2,16 @@ name: Research — AV Sentiment Harvest / N-8 (off-peak)
 
 # Resumable Alpha Vantage NEWS_SENTIMENT harvest -> daily per-class sentiment series committed at
 # research/altdata_committed/news/av_sentiment.csv.gz. Free tier 25/day, so each run does a bounded
-# batch of (class, month) windows; the daily cron backfills over a few days then keeps it current.
-# Needs the ALPHAVANTAGE_API_KEY secret. Lands the archive as a PR.
+# batch of (class, month) windows. The backfill is COMPLETE (2023-01 -> present); this now only keeps
+# the archive current. Needs the ALPHAVANTAGE_API_KEY secret. Lands the archive as a PR.
 on:
   schedule:
-    # Three tries/day for reliable daily advancement (GitHub's scheduler often skips a single time).
-    # Self-limiting: the free AV tier is ~25 req/day, so once a day's quota is used the later runs
-    # hit the rate-limit note and stop (no-op); together they use the full daily quota + catch skips.
-    - cron: "45 5 * * *"      # 05:45 UTC
-    - cron: "45 13 * * *"     # 13:45 UTC (retry / use remaining quota)
-    - cron: "45 21 * * *"     # 21:45 UTC (retry / use remaining quota)
+    # Search concluded (see research/FINAL_REPORT.md) -> the backfill no longer advances; this cron's
+    # only remaining job is to KEEP THE COMMITTED ARCHIVE CURRENT for the live board's context layer
+    # (fundamentals / fundtrend read av_sentiment.csv.gz). The user directed a 1x/day refresh for this.
+    # One run/day appends the latest day; the harvester is resumable, so a scheduler-skipped day is
+    # simply caught up on the next run. Self-limiting against the ~25 req/day free tier.
+    - cron: "45 5 * * *"      # 05:45 UTC — once daily (keep-current)
   workflow_dispatch:
     inputs:
       start:
@@ -72,16 +72,16 @@ jobs:
           title: "research: AV daily sentiment archive (auto-updating, N-8)"
           body: |
             Auto-updating daily per-class sentiment series from Alpha Vantage NEWS_SENTIMENT (N-8).
-            Resumable backfill (free 25/day) + stays current. Feeds the N-8 sentiment factor (judged by
-            the gauntlet) + the daily briefing. Auto-squash-merged to keep the backfill advancing (D-031).
+            Backfill complete; this keeps the committed archive current (free 25/day, self-limiting) for
+            the live board's context layer. Auto-squash-merged so each day's archive lands on main (D-031).
           delete-branch: false
 
-      # D-031: auto-advance the backfill. The resumable harvester only progresses if each day's archive
-      # lands on main (the next run reads the archive from main). Per the user's 2026-10-03 directive to
-      # "keep advancing the backfill", squash-merge the bot's own data-archive PR here. Scoped exception to
-      # D-002 (auto-generated data on a fixed path, never code); reversible by deleting this step. No-op
-      # when the harvest produced no change (no PR opened).
-      - name: Auto-merge archive PR (keep backfill advancing)
+      # D-031: land the daily update on main. The resumable harvester only sees the latest archive if it
+      # is on main (the next run reads it from main), so squash-merge the bot's own data-archive PR here.
+      # Originally for advancing the backfill (user's 2026-10-03 directive); now keeps the archive current
+      # for the live board (D-037). Scoped exception to D-002 (auto-generated data on a fixed path, never
+      # code); reversible by deleting this step. No-op when the harvest produced no change (no PR opened).
+      - name: Auto-merge archive PR (land daily keep-current update)
         if: steps.cpr.outputs.pull-request-number != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
