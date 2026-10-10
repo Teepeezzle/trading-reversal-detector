@@ -1,0 +1,52 @@
+name: Workflow Health Notifier
+
+# Always-on failure alerter. Fires whenever a watched workflow COMPLETES and
+# emails (via the existing Gmail secrets) only when it failed or timed out.
+# Native + durable: it does not depend on any chat session being alive.
+#
+# Watched (match by workflow `name:`):
+#   - V5 Parity Scan (H1, hourly)
+#   - V5 Parity Forward Tracker (daily OOS)
+#   - Confluence Board (Pages auto-refresh)
+# Add/remove a line under `workflows:` to change what is watched.
+on:
+  workflow_run:
+    workflows:
+      - "V5 Parity Scan (H1, hourly)"
+      - "V5 Parity Forward Tracker (daily OOS)"
+      - "Confluence Board (Pages auto-refresh)"
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    name: Email on failure
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Only page on genuinely bad conclusions (not success/skipped/cancelled).
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'failure' ||
+          github.event.workflow_run.conclusion == 'timed_out' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Send failure email
+        env:
+          EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          WF_NAME: ${{ github.event.workflow_run.name }}
+          WF_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          WF_URL: ${{ github.event.workflow_run.html_url }}
+          WF_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          WF_EVENT: ${{ github.event.workflow_run.event }}
+          WF_RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+          PYTHONIOENCODING: "utf-8"
+        run: python notify_workflow_failure.py
