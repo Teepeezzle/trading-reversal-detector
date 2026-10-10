@@ -82,6 +82,13 @@ def _read():
     return pd.DataFrame(columns=COLS)
 
 
+def _ensure_file():
+    """Guarantee the log CSV exists (header-only when empty) so downstream
+    git/persistence steps always have a file to add, even on a 0-signal run."""
+    if not SIGNALS.exists():
+        pd.DataFrame(columns=COLS).to_csv(SIGNALS, index=False)
+
+
 # ----------------------------- record -----------------------------
 def record() -> int:
     div_cfg, parity_cfg, tf_cfg, assets = _cfg()
@@ -251,6 +258,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=["record", "resolve", "report", "all"], default="all", nargs="?")
     a = ap.parse_args()
+    _ensure_file()
     if a.cmd in ("record", "all"):
         record()
     if a.cmd in ("resolve", "all"):
