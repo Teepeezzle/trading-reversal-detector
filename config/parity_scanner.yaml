@@ -1,0 +1,86 @@
+# =====================================================================
+# V5 PARITY scanner — configuration
+#
+# Alerts the user's "H1" divergence setup across ALL assets, hourly:
+#   a trend-ALIGNED V5 Swing+MACD divergence whose structure satisfies
+#     run in {2,4}  AND  span even  AND  span > run  AND  span <= 20
+#   (run = consecutive higher-highs for BEAR / lower-lows for BULL).
+#
+# IMPORTANT — honesty note carried into the alert email: this filter did
+# NOT show a robust standalone edge in backtest (24 months, BTC/ETH/gold/
+# QQQ, 45m-4h). Its aggregate "improvement" was mostly a junk-filter effect
+# confounded with asset/timeframe, and the even/even parity premise did not
+# hold. Deployed at the user's explicit request as a monitoring scanner, not
+# a validated edge. See backtest/parity_mtf/REPORT.md.
+#
+# Same engine + data layer as v5_scanner.yaml (yfinance), so it covers the
+# full asset list and the TradingView-anchored 45m/2h/3h/4h bars. Runs as its
+# own GitHub Actions workflow with isolated dedup state.
+# =====================================================================
+
+divergence:
+  left_bars: 2
+  right_bars: 2
+  macd_fast: 12
+  macd_slow: 26
+  macd_signal: 9
+  trend_sma: 200        # chart-native SMA per scanned timeframe
+  span_min: 6           # detection window (Custom 6-50)
+  span_max: 50
+  aligned_only: true    # email ONLY trend-aligned divergences
+
+# The "H1" structural filter applied on top of an aligned divergence.
+parity:
+  run_in: [2, 4]            # HH-run (BEAR) / LL-run (BULL) must be 2 or 4
+  require_span_even: true   # span divisible by 2
+  require_span_gt_run: true # span strictly greater than run
+  span_max: 20              # and span at most 20 bars
+
+freshness_buffer_minutes: 45
+
+# anchor: utc for crypto, ny17 for FX/metals/index CFDs (matches TradingView).
+assets:
+  BTCUSD:  {ticker: BTC-USD,  anchor: utc}
+  XAUUSD:  {ticker: GC=F,     anchor: ny17}
+  NAS100:  {ticker: NQ=F,     anchor: ny17}
+  GBPUSD:  {ticker: GBPUSD=X, anchor: ny17}
+  EURUSD:  {ticker: EURUSD=X, anchor: ny17}
+  ETHUSD:  {ticker: ETH-USD,  anchor: utc}
+  DOGEUSD: {ticker: DOGE-USD, anchor: utc}
+  XAGUSD:  {ticker: SI=F,     anchor: ny17}
+  DXY:     {ticker: DX-Y.NYB, anchor: ny17}
+  EURNZD:  {ticker: EURNZD=X, anchor: ny17}
+  USDJPY:  {ticker: USDJPY=X, anchor: ny17}
+  NZDJPY:  {ticker: NZDJPY=X, anchor: ny17}
+  GBPJPY:  {ticker: GBPJPY=X, anchor: ny17}
+  AUDUSD:  {ticker: AUDUSD=X, anchor: ny17}
+  XBRUSD:  {ticker: BZ=F,     anchor: ny17}
+
+# Hourly across the five strategy timeframes. 45m/2h/3h/4h are resampled from
+# the 15m/1h source with TradingView session anchoring (see src/v5_divergence).
+timeframes:
+  45m:
+    source_interval: 15m
+    resample: 45min
+    period: 60d
+    scan_every_minutes: 60
+  1h:
+    source_interval: 1h
+    resample: null
+    period: 120d
+    scan_every_minutes: 60
+  2h:
+    source_interval: 1h
+    resample: 2h
+    period: 120d
+    scan_every_minutes: 60
+  3h:
+    source_interval: 1h
+    resample: 3h
+    period: 150d
+    scan_every_minutes: 60
+  4h:
+    source_interval: 1h
+    resample: 4h
+    period: 180d
+    scan_every_minutes: 60
