@@ -76,6 +76,10 @@ class DivergenceSignal:
     atr: Optional[float] = None
     stop: Optional[float] = None
     target: Optional[float] = None
+    # Consecutive extending pivots ending at pivot2 (higher-highs for BEAR /
+    # lower-lows for BULL). Populated by detect_divergences; default 0 keeps
+    # older callers and pickles backward-compatible.
+    run: int = 0
 
     @property
     def confirm_close_time(self) -> pd.Timestamp:
@@ -235,8 +239,13 @@ def detect_divergences(df: pd.DataFrame, asset: str, ticker: str,
     for kind, direction in (("high", "BEAR"), ("low", "BULL")):
         vals = high if kind == "high" else low
         piv = find_pivots(vals, left, right, kind)
+        run = 1
         for k in range(1, len(piv)):
             i1, i2 = piv[k - 1], piv[k]
+            # Track run-length on EVERY pivot step (before any filter) so it
+            # counts true consecutive higher-highs / lower-lows.
+            extend = (vals[i2] > vals[i1]) if kind == "high" else (vals[i2] < vals[i1])
+            run = run + 1 if extend else 1
             span = i2 - i1
             if not (span_min <= span <= span_max):
                 continue
@@ -266,6 +275,7 @@ def detect_divergences(df: pd.DataFrame, asset: str, ticker: str,
                 macd1=m1, macd2=m2,
                 close=float(close[c]), sma=float(sma[c]),
                 confirm_time=idx[c], bar_minutes=bar_minutes,
+                run=run,
             ))
     return signals
 
