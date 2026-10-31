@@ -41,6 +41,13 @@ MKT_TICKERS = {"us10y": "^TNX", "dxy": "DX-Y.NYB", "gold": "GC=F", "oil": "CL=F"
 CRYPTO = FUND.CRYPTO
 FX_CCYS = {"USD", "EUR", "JPY", "GBP", "AUD", "NZD", "CAD", "CHF", "NGN"}
 
+# USD index aliases -> treated AS the US-dollar (its fundamentals ARE the USD drivers).
+USD_INDEX = {"DXY", "DX-Y.NYB", "USDX", "DXYUSD"}
+# Equity-index aliases -> a free-data MACRO BACKDROP only (US rates/real-yield + USD risk),
+# explicitly NOT earnings/valuation. Covers common CFD tickers so new ones map automatically.
+EQUITY_INDEX = {"NAS100", "US100", "USTEC", "NDX", "SPX500", "US500", "SPX", "US30", "DJI", "DJIA",
+                "GER40", "DE40", "UK100", "FTSE", "JP225", "NKY", "EU50", "AUS200", "HK50"}
+
 
 # ----------------------------- small helpers -----------------------------
 def _dir(delta, deadband):
@@ -302,6 +309,50 @@ def _crypto_trend(asset, asof, bundle, mkt):
     return bias, strength, comps, f"rates/USD + funding{' + sentiment' if any(c['name']=='News sentiment' and c['used'] for c in comps) else ''} -> {asset} {bias.lower()}", driver
 
 
+def _usd_index_trend(asset, asof, bundle, mkt):
+    """DXY / USD-index: its fundamentals ARE the USD drivers (vote +1 = USD-bullish = index up)."""
+    comps = us_components(asof, bundle, mkt)
+    bias, strength, net, used = _bias_from(comps)
+    driver = "; ".join(f"{c['name']} {c['dir']}" for c in used[:3]) or "no reachable drivers"
+    return bias, strength, comps, f"USD macro drivers -> {asset} {bias.lower()}", driver
+
+
+def _equity_index_trend(asset, asof, bundle, mkt):
+    """Equity index MACRO BACKDROP only (free data): US rates + real yield (both inverse for
+    growth equities) + USD risk (inverse). Earnings/valuation have no reachable free source."""
+    comps = []
+    us = us_components(asof, bundle, mkt)
+    rate = next((c for c in us if c["name"] == "US rate path"), None)
+    if rate is not None:
+        inv = dict(rate)
+        inv["name"] = "US rates (equities, inverse)"
+        inv["dir"] = "↓" if rate["dir"] == "↑" else "↑" if rate["dir"] == "↓" else "→"
+        inv["detail"] = ("Fed hiking -> headwind" if rate["dir"] == "↑"
+                         else "Fed cutting -> tailwind" if rate["dir"] == "↓" else "Fed on hold")
+        inv["vote"] = -rate.get("vote", 0)
+        comps.append(inv)
+    ry = next((c for c in us if c["name"] == "US real yield"), None)
+    if ry is not None and ry.get("used"):
+        inv = dict(ry)
+        inv["name"] = "US real yield (equities, inverse)"
+        inv["dir"] = "↓" if ry["dir"] == "↑" else "↑" if ry["dir"] == "↓" else "→"
+        inv["detail"] = ry["detail"] + " (inverse for equities)"
+        inv["vote"] = -ry.get("vote", 0)
+        comps.append(inv)
+    dxy = series_trend(mkt.get("dxy"), 60, 0.5)
+    if dxy:
+        arrow, pct, ld, age = dxy
+        used = age <= MAX_AGE["market"]
+        comps.append(_comp("DXY (risk, inverse)", "↓" if arrow == "↑" else "↑" if arrow == "↓" else "→",
+                           f"DXY {pct:+.1f}% 60d -> equities {'headwind' if arrow=='↑' else 'tailwind' if arrow=='↓' else 'neutral'}",
+                           ld, used, "" if used else f"stale {age}d",
+                           vote=(-1 if arrow == "↑" else 1 if arrow == "↓" else 0) if used else 0))
+    comps.append(_comp("Earnings / valuation", "→", "equity-specific", "", False, "no reachable free source"))
+    bias, strength, net, used = _bias_from(comps)
+    driver = "; ".join(f"{c['name']} {c['dir']}" for c in used[:3]) or "no reachable drivers"
+    return bias, strength, comps, f"US rates/real-yield + USD (macro backdrop, not earnings) -> {asset} {bias.lower()}", driver
+
+
 # ----------------------------- public entry -----------------------------
 def market_data(fetch_ohlcv) -> dict:
     """Fetch the reachable Yahoo macro series once per board run (shared across all cards)."""
@@ -330,6 +381,10 @@ def fundamental_trend(asset: str, asof, bundle: dict | None = None, mkt: dict | 
         bias, strength, comps, logic, driver = _oil_trend(a, asof, bundle, mkt)
     elif a.startswith(("XAU", "XAG")):
         bias, strength, comps, logic, driver = _metal_trend(a, asof, bundle, mkt)
+    elif a in USD_INDEX:
+        bias, strength, comps, logic, driver = _usd_index_trend(a, asof, bundle, mkt)
+    elif a in EQUITY_INDEX:
+        bias, strength, comps, logic, driver = _equity_index_trend(a, asof, bundle, mkt)
     elif len(a) >= 6 and a[:3] in FX_CCYS and a[3:6] in FX_CCYS:
         bias, strength, comps, logic, driver = _fx_trend(a, asof, bundle, mkt)
     else:
