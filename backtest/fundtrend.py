@@ -46,7 +46,18 @@ USD_INDEX = {"DXY", "DX-Y.NYB", "USDX", "DXYUSD"}
 # Equity-index aliases -> a free-data MACRO BACKDROP only (US rates/real-yield + USD risk),
 # explicitly NOT earnings/valuation. Covers common CFD tickers so new ones map automatically.
 EQUITY_INDEX = {"NAS100", "US100", "USTEC", "NDX", "SPX500", "US500", "SPX", "US30", "DJI", "DJIA",
-                "GER40", "DE40", "UK100", "FTSE", "JP225", "NKY", "EU50", "AUS200", "HK50"}
+                "GER40", "DE40", "UK100", "FTSE", "JP225", "NKY", "EU50", "EUSTX50", "SX5E", "STOXX50",
+                "AUS200", "HK50"}
+
+
+def _is_usd_index(a: str) -> bool:
+    return a in USD_INDEX
+
+
+def _is_equity_index(a: str) -> bool:
+    # Tolerate a trailing "USD" quote suffix (US30USD -> US30, NAS100USD -> NAS100) so broker
+    # ticker variants map without having to enumerate every spelling.
+    return a in EQUITY_INDEX or (a.endswith("USD") and a[:-3] in EQUITY_INDEX)
 
 
 # ----------------------------- small helpers -----------------------------
@@ -381,9 +392,9 @@ def fundamental_trend(asset: str, asof, bundle: dict | None = None, mkt: dict | 
         bias, strength, comps, logic, driver = _oil_trend(a, asof, bundle, mkt)
     elif a.startswith(("XAU", "XAG")):
         bias, strength, comps, logic, driver = _metal_trend(a, asof, bundle, mkt)
-    elif a in USD_INDEX:
+    elif _is_usd_index(a):
         bias, strength, comps, logic, driver = _usd_index_trend(a, asof, bundle, mkt)
-    elif a in EQUITY_INDEX:
+    elif _is_equity_index(a):
         bias, strength, comps, logic, driver = _equity_index_trend(a, asof, bundle, mkt)
     elif len(a) >= 6 and a[:3] in FX_CCYS and a[3:6] in FX_CCYS:
         bias, strength, comps, logic, driver = _fx_trend(a, asof, bundle, mkt)
