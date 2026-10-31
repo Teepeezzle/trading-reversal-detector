@@ -8,6 +8,8 @@ name: Research — News Refresh / Phase 9 (off-peak)
 # ONE-TIME SETTING (if create-PR denied): Settings -> Actions -> General -> Workflow permissions ->
 # enable "Allow GitHub Actions to create and approve pull requests".
 on:
+  schedule:
+    - cron: "50 4 * * *"      # 04:50 UTC daily (off-peak, staggered from the AV-sentiment job at 05:45)
   workflow_dispatch:
     inputs:
       start:
@@ -56,6 +58,7 @@ jobs:
         run: python research/jobs/daily_brief.py
 
       - name: Open/update news PR
+        id: cpr
         uses: peter-evans/create-pull-request@v6
         with:
           add-paths: |
@@ -68,5 +71,18 @@ jobs:
           body: |
             Auto-generated timestamped macro-release table (N-1 FRED + N-2 EIA) for the news layer
             (D-021 / NEWS_LAYER.md). Canonical schema, no-lookahead (published_at/first_available_at).
-            Next: N-3 (economic calendar), N-5 (news gate + regime tag as registry hypotheses).
+            Auto-squash-merged so each day's macro releases land on main for the live board's
+            fundamental-trend layer (same keep-current pattern as the AV-sentiment archive).
           delete-branch: false
+
+      # Land the update on main so fundtrend/fundamentals read current FRED/EIA (otherwise the board's
+      # USD-macro legs go stale, excluded by the max-age gate). Mirrors the AV-sentiment auto-merge
+      # (scoped exception for auto-generated data on a fixed path, never code; reversible by deleting
+      # this step). No-op when there was no new macro release (no PR opened).
+      - name: Auto-merge news PR (land keep-current macro update)
+        if: steps.cpr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Squash-merging PR #${{ steps.cpr.outputs.pull-request-number }} (${{ steps.cpr.outputs.pull-request-operation }})"
+          gh pr merge "${{ steps.cpr.outputs.pull-request-number }}" --squash --repo "$GITHUB_REPOSITORY"
