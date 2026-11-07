@@ -39,6 +39,30 @@ FRED_SERIES = {
     "FEDFUNDS": ("FedFunds", "14:00", "medium"),
 }
 
+# Non-US central-bank policy rates + CPI, so the board's fundamental-trend layer has real
+# drivers for EUR/GBP/JPY/AUD/NZD/CHF/CAD (fixes "insufficient data" on crosses with no USD
+# leg, e.g. EURNZD/GBPNZD/GBPAUD and the JPY crosses). These are standard FRED observations
+# (foreign/OECD series have no first-release vintages), so availability is stamped as the
+# observation date + a conservative publication lag (no-lookahead-safe for a display layer).
+# id -> (archive name, kind "rate"|"cpi", availability lag days). Candidate IDs; the harvest
+# log reports which actually return data and fundtrend uses only those (missing -> excluded).
+FRED_INTL = {
+    "ECBDFR":              ("ECB_RATE", "rate", 1),    # ECB deposit facility rate (daily)
+    "CP0000EZ19M086NEST":  ("EA_CPI",   "cpi",  20),   # Euro-area HICP (Eurostat)
+    "IRSTCB01GBM156N":     ("UK_RATE",  "rate", 20),   # OECD central-bank rate, UK
+    "GBRCPIALLMINMEI":     ("UK_CPI",   "cpi",  20),   # OECD CPI, UK
+    "IRSTCB01JPM156N":     ("JP_RATE",  "rate", 20),   # OECD central-bank rate, Japan
+    "JPNCPIALLMINMEI":     ("JP_CPI",   "cpi",  25),   # OECD CPI, Japan
+    "IRSTCB01AUM156N":     ("AU_RATE",  "rate", 20),   # OECD central-bank rate, Australia
+    "AUSCPIALLQINMEI":     ("AU_CPI",   "cpi",  40),   # OECD CPI, Australia (quarterly)
+    "IRSTCB01NZM156N":     ("NZ_RATE",  "rate", 20),   # OECD central-bank rate, New Zealand
+    "NZLCPIALLQINMEI":     ("NZ_CPI",   "cpi",  40),   # OECD CPI, New Zealand (quarterly)
+    "IRSTCB01CHM156N":     ("CH_RATE",  "rate", 20),   # OECD central-bank rate, Switzerland
+    "CHECPIALLMINMEI":     ("CH_CPI",   "cpi",  20),   # OECD CPI, Switzerland
+    "IRSTCB01CAM156N":     ("CA_RATE",  "rate", 20),   # OECD central-bank rate, Canada
+    "CANCPIALLMINMEI":     ("CA_CPI",   "cpi",  20),   # OECD CPI, Canada
+}
+
 
 def log_blocker(msg: str):
     with BLOCKERS.open("a", encoding="utf-8") as f:
@@ -81,6 +105,45 @@ def fetch_fred(start: str) -> pd.DataFrame:
         df["prior"] = df.groupby("name")["actual"].shift(1)
         df.loc[df["surprise"].isna(), "surprise"] = df["actual"] - df["prior"]
     print(f"  FRED: {len(df)} release events across {df['name'].nunique() if len(df) else 0} series")
+    return df
+
+
+def fetch_fred_intl(start: str) -> pd.DataFrame:
+    """Non-US policy rates + CPI (standard observations; no first-release vintages exist for
+    these). Availability = observation date + a conservative publication lag."""
+    key = os.environ.get("FRED_API_KEY", "")
+    if not key:
+        return N.empty()
+    rows = []
+    for sid, (name, kind, lag) in FRED_INTL.items():
+        try:
+            r = requests.get("https://api.stlouisfed.org/fred/series/observations",
+                             params={"series_id": sid, "api_key": key, "file_type": "json",
+                                     "observation_start": start},
+                             headers=UA, timeout=30)
+            if r.status_code != 200:
+                print(f"    FRED-INTL {sid} ({name}): HTTP {r.status_code} {r.text[:120]!r}"); continue
+            obs = (r.json() or {}).get("observations") or []
+            n0 = len(rows)
+            for o in obs:
+                val = o.get("value")
+                if val in (None, ".", ""):
+                    continue
+                d = pd.to_datetime(o.get("date"), errors="coerce")
+                if pd.isna(d):
+                    continue
+                av = d + pd.Timedelta(days=lag)
+                rows.append(dict(event_id=f"FRED:{sid}:{o['date']}", source="FRED", name=name,
+                                 instrument_class="forex_macro", published_at=av, first_available_at=av,
+                                 actual=float(val), prior=None, forecast=None, surprise=None,
+                                 impact="medium"))
+            print(f"    FRED-INTL {sid} ({name}): {len(rows) - n0} obs")
+        except Exception as exc:  # noqa: BLE001
+            print(f"    FRED-INTL {sid} ({name}): ERR {exc}")
+    df = N.normalize(pd.DataFrame(rows))
+    if not df.empty:
+        df["prior"] = df.groupby("name")["actual"].shift(1)
+    print(f"  FRED-INTL: {len(df)} obs across {df['name'].nunique() if len(df) else 0} series")
     return df
 
 
@@ -190,6 +253,9 @@ def main() -> int:
     out = ROOT / "altdata_committed" / "news"; out.mkdir(parents=True, exist_ok=True)  # tracked (small, static)
 
     fred = fetch_fred(a.start)
+    fred_intl = fetch_fred_intl(a.start)
+    if not fred_intl.empty:
+        fred = pd.concat([fred, fred_intl], ignore_index=True) if not fred.empty else fred_intl
     if not fred.empty:
         N.save(fred, out / "fred.csv.gz")
     eia = fetch_eia(a.start)

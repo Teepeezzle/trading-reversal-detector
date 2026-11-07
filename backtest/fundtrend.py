@@ -41,6 +41,16 @@ MKT_TICKERS = {"us10y": "^TNX", "dxy": "DX-Y.NYB", "gold": "GC=F", "oil": "CL=F"
 CRYPTO = FUND.CRYPTO
 FX_CCYS = {"USD", "EUR", "JPY", "GBP", "AUD", "NZD", "CAD", "CHF", "NGN"}
 
+# Non-US central-bank policy rate + CPI archive names (harvested into fred.csv.gz by
+# research/jobs/news_refresh.py). Gives each currency a real fundamental leg so FX crosses
+# with no USD leg (EURNZD, GBPNZD, GBPAUD, the JPY crosses) are no longer "insufficient data".
+# A name absent from the archive (unmapped FRED id) is simply excluded — never fabricated.
+FOREIGN_MACRO = {
+    "EUR": ("ECB_RATE", "EA_CPI"), "GBP": ("UK_RATE", "UK_CPI"), "JPY": ("JP_RATE", "JP_CPI"),
+    "AUD": ("AU_RATE", "AU_CPI"), "NZD": ("NZ_RATE", "NZ_CPI"), "CHF": ("CH_RATE", "CH_CPI"),
+    "CAD": ("CA_RATE", "CA_CPI"),
+}
+
 # USD index aliases -> treated AS the US-dollar (its fundamentals ARE the USD drivers).
 USD_INDEX = {"DXY", "DX-Y.NYB", "USDX", "DXYUSD"}
 # Equity-index aliases -> a free-data MACRO BACKDROP only (US rates/real-yield + USD risk),
@@ -146,40 +156,96 @@ def real_yield_trend(asof, bundle, mkt):
                  ld, used, "" if used else f"stale {age}d", vote=(1 if arrow == "↑" else -1 if arrow == "↓" else 0) if used else 0)
 
 
+# ----------------------------- foreign (non-US) macro: rate path + inflation -----------------------------
+def _named_rows(bundle, name, asof):
+    f = bundle.get("fred")
+    if f is None or f.empty:
+        return None
+    g = f[(f["name"] == name) & (f["first_available_at"] <= asof)].sort_values("first_available_at")
+    return g if not g.empty else None
+
+
+def _yoy_pair(c):
+    """(yoy_now, yoy_prev) via date lookback (~360d), robust to monthly OR quarterly CPI."""
+    d = c["first_available_at"].reset_index(drop=True)
+    v = c["actual"].astype(float).reset_index(drop=True)
+
+    def at(target):
+        sub = v[d <= target]
+        return float(sub.iloc[-1]) if len(sub) else None
+    if len(v) < 2:
+        return None
+    now_v, prev_v = float(v.iloc[-1]), float(v.iloc[-2])
+    base_now = at(d.iloc[-1] - pd.Timedelta(days=360))
+    base_prev = at(d.iloc[-2] - pd.Timedelta(days=360))
+    if not base_now or not base_prev:
+        return None
+    return now_v / base_now - 1, prev_v / base_prev - 1
+
+
+def foreign_components(ccy, asof, bundle):
+    """Policy-rate path (hiking = currency-bullish) + CPI acceleration (hawkish = bullish).
+    Reads the harvested non-US FRED series; any missing series is just excluded."""
+    spec = FOREIGN_MACRO.get(ccy)
+    if not spec:
+        return []
+    rate_name, cpi_name = spec
+    out = []
+    g = _named_rows(bundle, rate_name, asof)
+    if g is not None and len(g) >= 2:
+        av = g["first_available_at"].iloc[-1]; age = (asof - av).days
+        last = float(g["actual"].iloc[-1]); prev = float(g["actual"].iloc[max(0, len(g) - 4)])
+        arrow = _dir(last - prev, 1e-9); used = age <= MAX_AGE["fred_monthly"]
+        out.append(_comp(f"{ccy} rate path", arrow,
+                         f"policy rate {last:.2f}% ({'hiking' if arrow=='↑' else 'cutting' if arrow=='↓' else 'hold'})",
+                         av, used, "" if used else f"stale {age}d",
+                         vote=(1 if arrow == "↑" else -1 if arrow == "↓" else 0) if used else 0))
+    c = _named_rows(bundle, cpi_name, asof)
+    yy = _yoy_pair(c) if c is not None else None
+    if yy is not None:
+        av = c["first_available_at"].iloc[-1]; age = (asof - av).days
+        yoy_now, yoy_prev = yy
+        arrow = _dir(yoy_now - yoy_prev, 1e-6); used = age <= MAX_AGE["fred_quarterly"]
+        out.append(_comp(f"{ccy} inflation", arrow,
+                         f"CPI {yoy_now*100:.1f}% yoy ({'accelerating' if arrow=='↑' else 'cooling' if arrow=='↓' else 'flat'})",
+                         av, used, "" if used else f"stale {age}d",
+                         vote=(1 if arrow == "↑" else -1 if arrow == "↓" else 0) if used else 0))
+    return out
+
+
 # ----------------------------- per-currency direction -----------------------------
 def currency_components(ccy, asof, bundle, mkt):
-    """Reachable fundamental components for one currency (vote = + bullish that currency)."""
+    """Reachable fundamental components for one currency (vote = + bullish that currency):
+    the market-based leg where one exists, plus non-US policy-rate / CPI legs from the
+    harvested FRED archive (foreign_components)."""
     ccy = ccy.upper()
     if ccy == "USD":
         return us_components(asof, bundle, mkt)
+    comps = []
     if ccy == "JPY":
         t = series_trend(mkt.get("us10y"), 60, 0.0)
-        if t is None:
-            return [_comp("JPY (US yields/risk)", "→", "unavailable", "", False, "no reachable 10y")]
-        arrow, pct, ld, age = t; used = age <= MAX_AGE["market"]
-        # higher US yields -> carry -> JPY weaker (vote -1 for JPY when yields rising)
-        return [_comp("JPY (US yields/risk)", "↓" if arrow == "↑" else "↑" if arrow == "↓" else "→",
-                      f"US 10y {'rising' if arrow=='↑' else 'falling' if arrow=='↓' else 'flat'} ({pct:+.1f}% 60d) -> JPY {'pressured' if arrow=='↑' else 'supported' if arrow=='↓' else 'neutral'}",
-                      ld, used, "" if used else f"stale {age}d", vote=(-1 if arrow == "↑" else 1 if arrow == "↓" else 0) if used else 0),
-                _comp("JPY rate path / inflation", "→", "BoJ data", "", False, "no reachable free source")]
-    if ccy == "AUD":
+        if t:
+            arrow, pct, ld, age = t; used = age <= MAX_AGE["market"]
+            # higher US yields -> carry -> JPY weaker (vote -1 for JPY when yields rising)
+            comps.append(_comp("JPY (US yields/risk)", "↓" if arrow == "↑" else "↑" if arrow == "↓" else "→",
+                               f"US 10y {'rising' if arrow=='↑' else 'falling' if arrow=='↓' else 'flat'} ({pct:+.1f}% 60d) -> JPY {'pressured' if arrow=='↑' else 'supported' if arrow=='↓' else 'neutral'}",
+                               ld, used, "" if used else f"stale {age}d", vote=(-1 if arrow == "↑" else 1 if arrow == "↓" else 0) if used else 0))
+    elif ccy == "AUD":
         t = series_trend(mkt.get("gold"), 60, 1.0)
-        comps = [_comp("AUD rate path / inflation", "→", "RBA data", "", False, "no reachable free source")]
         if t:
             arrow, pct, ld, age = t; used = age <= MAX_AGE["market"]
-            comps.insert(0, _comp("AUD terms-of-trade (gold)", arrow, f"gold {pct:+.1f}% 60d", ld, used,
-                                  "" if used else f"stale {age}d", vote=(1 if arrow == "↑" else -1 if arrow == "↓" else 0) if used else 0))
-        return comps
-    if ccy == "CAD":
+            comps.append(_comp("AUD terms-of-trade (gold)", arrow, f"gold {pct:+.1f}% 60d", ld, used,
+                               "" if used else f"stale {age}d", vote=(1 if arrow == "↑" else -1 if arrow == "↓" else 0) if used else 0))
+    elif ccy == "CAD":
         t = series_trend(mkt.get("oil"), 60, 1.0)
-        comps = [_comp("CAD rate path / inflation", "→", "BoC data", "", False, "no reachable free source")]
         if t:
             arrow, pct, ld, age = t; used = age <= MAX_AGE["market"]
-            comps.insert(0, _comp("CAD terms-of-trade (oil)", arrow, f"oil {pct:+.1f}% 60d", ld, used,
-                                  "" if used else f"stale {age}d", vote=(1 if arrow == "↑" else -1 if arrow == "↓" else 0) if used else 0))
-        return comps
-    # NZD, EUR, GBP, CHF, NGN, ...
-    return [_comp(f"{ccy} rate path / inflation", "→", "central-bank data", "", False, "no reachable free source")]
+            comps.append(_comp("CAD terms-of-trade (oil)", arrow, f"oil {pct:+.1f}% 60d", ld, used,
+                               "" if used else f"stale {age}d", vote=(1 if arrow == "↑" else -1 if arrow == "↓" else 0) if used else 0))
+    comps += foreign_components(ccy, asof, bundle)
+    if not comps:
+        comps = [_comp(f"{ccy} rate path / inflation", "→", "central-bank data", "", False, "no reachable free source")]
+    return comps
 
 
 # ----------------------------- bias assembly -----------------------------
