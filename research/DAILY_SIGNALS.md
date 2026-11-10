@@ -5,14 +5,12 @@ Generated pre-dawn by the `briefing` workflow (Phase 6+). Until a validated cand
 exists, this stays empty by design.
 
 
-## Briefing 2026-11-10
+## Briefing 2026-11-11
 **No trades today.** No validated candidate exists yet (Phases 3–9 found 0 MTC-significant edges); an empty list is the honest output. The event-risk calendar below is live.
 
-### Event-risk calendar (next 14 days — 6 official FXMacroData times, rest projected)
+### Event-risk calendar (next 14 days — 4 official FXMacroData times, rest projected)
 | event | class | next (UTC) | source |
 |---|---|---|---|
-| core_inflation ⚠high | forex_macro | 2026-11-10 13:30 | official |
-| inflation ⚠high | forex_macro | 2026-11-10 13:30 | official |
 | CrudeInventories ⚠high | oil | 2026-11-11 14:30 ~ | projected |
 | ppi | forex_macro | 2026-11-13 13:30 | official |
 | retail_sales ⚠high | forex_macro | 2026-11-17 13:30 | official |
