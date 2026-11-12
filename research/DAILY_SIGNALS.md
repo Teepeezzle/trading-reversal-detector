@@ -5,21 +5,24 @@ Generated pre-dawn by the `briefing` workflow (Phase 6+). Until a validated cand
 exists, this stays empty by design.
 
 
-## Briefing 2026-11-11
+## Briefing 2026-11-13
 **No trades today.** No validated candidate exists yet (Phases 3–9 found 0 MTC-significant edges); an empty list is the honest output. The event-risk calendar below is live.
 
-### Event-risk calendar (next 14 days — 8 official FXMacroData times, rest projected)
+### Event-risk calendar (next 14 days — 11 official FXMacroData times, rest projected)
 | event | class | next (UTC) | source |
 |---|---|---|---|
-| CrudeInventories ⚠high | oil | 2026-11-11 14:30 ~ | projected |
-| speech | forex_macro | 2026-11-12 15:00 | official |
 | ppi | forex_macro | 2026-11-13 13:30 | official |
 | speech | forex_macro | 2026-11-13 15:50 | official |
 | speech | forex_macro | 2026-11-14 00:00 | official |
 | retail_sales ⚠high | forex_macro | 2026-11-17 13:30 | official |
 | industrial_production | forex_macro | 2026-11-17 14:15 | official |
+| CrudeInventories ⚠high | oil | 2026-11-18 14:30 ~ | projected |
 | policy_minutes ⚠high | forex_macro | 2026-11-18 19:00 | official |
 | business_confidence | forex_macro | 2026-11-19 15:00 | official |
+| core_pce ⚠high | forex_macro | 2026-11-25 13:30 | official |
+| gdp ⚠high | forex_macro | 2026-11-25 13:30 | official |
+| pce ⚠high | forex_macro | 2026-11-25 13:30 | official |
+| policy_report | forex_macro | 2026-11-25 19:00 | official |
 
 _Per-signal briefing (once candidates are live): `news: <tag>; next event risk: <event ~date>` — see brief_for_signal(). No new intraday entry within 30 min of a ⚠high event; no holding a fresh position through one without a logged reason (D-021 §3)._
 
