@@ -19,7 +19,9 @@ Per-currency drivers actually used (reachable only):
   CAD  : oil terms-of-trade (CL=F)                                          [BoC rate/infl EXCLUDED]
   NZD,EUR,GBP,CHF,NGN : no reachable free driver -> EXCLUDED
 Metals: US real yield (inverse) + DXY (inverse) [+ gold/silver ratio for XAG].
-Oil   : EIA crude inventory w/w (draw=bullish) + DXY (inverse) [OPEC+/refinery/geopolitics EXCLUDED].
+Oil   : EIA crude inventory w/w (draw=bullish) + DXY (inverse) + US real yield (inverse = demand/
+        financial-conditions headwind) + RBOB gasoline crack (refining margin = product demand)
+        [OPEC+/refinery/geopolitics still EXCLUDED — no reachable free source].
 Crypto: US rates+DXY (risk, inverse) + per-coin funding (extreme = contrarian) + AV sentiment (7d
         staleness -> EXCLUDED when stale, e.g. the XRP 825d case) [ETF flows / asset-specific EXCLUDED].
 """
@@ -36,7 +38,13 @@ LABEL = "FUNDAMENTAL TREND - NOT VALIDATED"
 MAX_AGE = {"fred_monthly": 45, "fred_quarterly": 100, "market": 4, "funding": 1.0, "sentiment": 7}
 
 # reachable Yahoo macro tickers (fetched once per board run and passed in)
-MKT_TICKERS = {"us10y": "^TNX", "dxy": "DX-Y.NYB", "gold": "GC=F", "oil": "CL=F", "silver": "SI=F"}
+MKT_TICKERS = {"us10y": "^TNX", "dxy": "DX-Y.NYB", "gold": "GC=F", "oil": "CL=F", "silver": "SI=F",
+               "gasoline": "RB=F"}   # RBOB gasoline front-month -> crack / product-demand proxy for oil
+
+# Scope the EXTRA oil drivers (US real yield + gasoline crack) to EXACTLY these two board instruments.
+# Every other oil-class alias (WTIUSD/USOUSD/UKOUSD) keeps the original EIA+DXY behaviour, so this
+# change provably cannot affect any asset other than XTIUSD / XBRUSD (user directive 2026-11-13).
+OIL_EXTRA_DRIVERS = {"XTIUSD", "XBRUSD"}
 
 CRYPTO = FUND.CRYPTO
 FX_CCYS = {"USD", "EUR", "JPY", "GBP", "AUD", "NZD", "CAD", "CHF", "NGN"}
@@ -315,8 +323,30 @@ def _metal_trend(asset, asof, bundle, mkt):
     return bias, strength, comps, logic, driver
 
 
+def _crack_trend(mkt, lookback=60, deadband_pct=3.0):
+    """RBOB gasoline crack (42*RB - CL, $/bbl) direction over `lookback` days. A rising crack =
+    stronger refining margin / product demand -> refiners pull more crude -> bullish. This is a
+    price-derived MARGIN signal (RB relative to CL), not the absolute oil price, so it is not a
+    restatement of the chart's own trend. Staleness-capped. Returns (arrow, pct, last_date, age,
+    used) or None if RB=F / CL=F are not both reachable (then the driver is EXCLUDED, never faked)."""
+    rb = mkt.get("gasoline"); cl = mkt.get("oil")
+    if rb is None or cl is None or getattr(rb, "empty", True) or getattr(cl, "empty", True):
+        return None
+    j = pd.concat([rb["Close"].rename("rb"), cl["Close"].rename("cl")], axis=1).dropna()
+    if len(j) < 5:
+        return None
+    crack = 42.0 * j["rb"].astype(float) - j["cl"].astype(float)    # RB $/gal -> $/bbl; CL $/bbl
+    last = float(crack.iloc[-1]); ref = float(crack.iloc[-min(lookback, len(crack))])
+    pct = (last / ref - 1.0) * 100 if ref else 0.0
+    last_date = pd.Timestamp(j.index[-1])
+    now = pd.Timestamp.now(tz="UTC").tz_localize(None)
+    age = (now - (last_date.tz_convert("UTC").tz_localize(None) if last_date.tzinfo else last_date)).total_seconds() / 86400
+    return (_dir(pct, deadband_pct), round(pct, 2), str(last_date)[:10], round(age, 1), age <= MAX_AGE["market"])
+
+
 def _oil_trend(asset, asof, bundle, mkt):
     comps = []
+    # (1) EIA weekly crude inventory surprise — a draw (surprise < 0) = bullish, a build = bearish.
     eia = bundle.get("eia")
     eia = eia[(eia["name"] == "CrudeInventories") & (eia["first_available_at"] <= asof)].sort_values("first_available_at") if eia is not None and not eia.empty else None
     if eia is not None and not eia.empty:
@@ -329,16 +359,44 @@ def _oil_trend(asset, asof, bundle, mkt):
                            f"w/w {'draw' if draw else 'build' if draw is False else 'n/a'} {('%+.0f kb'%float(surp)) if pd.notna(surp) else ''} ({'bullish' if draw else 'bearish' if draw is False else '—'})",
                            av, used, "" if used else (f"stale {age}d" if pd.notna(surp) else "no surprise"),
                            vote=(1 if draw else -1 if draw is False else 0) if used else 0))
+    # (2) DXY, inverse — a stronger dollar prices crude higher for the rest of the world -> bearish.
     dxy = series_trend(mkt.get("dxy"), 60, 0.5)
     if dxy:
         arrow, pct, ld, age = dxy; used = age <= MAX_AGE["market"]
         comps.append(_comp("DXY (inverse)", "↓" if arrow == "↑" else "↑" if arrow == "↓" else "→",
                            f"DXY {pct:+.1f}% 60d", ld, used, "" if used else f"stale {age}d",
                            vote=(-1 if arrow == "↑" else 1 if arrow == "↓" else 0) if used else 0))
+    # (3)+(4) EXTRA drivers — scoped to exactly XTIUSD / XBRUSD (OIL_EXTRA_DRIVERS). Any other oil-class
+    #     alias falls through with only EIA+DXY, i.e. byte-identical to the pre-change behaviour.
+    if asset.upper() in OIL_EXTRA_DRIVERS:
+        # (3) US real yield, inverse — rising real yields tighten financial conditions and dampen oil
+        #     demand expectations -> bearish. Reuses the shared real-yield leg, inverted (same idiom as
+        #     _equity_index_trend). Carries its own available_at / used flag.
+        ry = next((c for c in us_components(asof, bundle, mkt) if c["name"] == "US real yield"), None)
+        if ry is not None:
+            inv = dict(ry)
+            inv["name"] = "US real yield (demand, inverse)"
+            inv["dir"] = "↓" if ry["dir"] == "↑" else "↑" if ry["dir"] == "↓" else "→"
+            inv["detail"] = ry["detail"] + (" -> tighter = oil-demand headwind" if ry["dir"] == "↑"
+                                            else " -> easier = oil-demand tailwind" if ry["dir"] == "↓" else "")
+            inv["vote"] = -ry.get("vote", 0)
+            comps.append(inv)
+        # (4) RBOB gasoline crack — refining margin / product demand. Rising crack = bullish for crude.
+        crack = _crack_trend(mkt)
+        if crack is not None:
+            arrow, pct, ld, age, used = crack
+            comps.append(_comp("Gasoline crack (demand)", arrow,
+                               f"RBOB crack {pct:+.1f}% 60d ({'margins up = demand' if arrow=='↑' else 'margins down' if arrow=='↓' else 'flat'})",
+                               ld, used, "" if used else f"stale {age}d",
+                               vote=(1 if arrow == "↑" else -1 if arrow == "↓" else 0) if used else 0))
+        else:
+            comps.append(_comp("Gasoline crack (demand)", "→", "RBOB/crude margin", "", False, "no reachable free source"))
+    # (5) supply policy — still no free source (the dominant oil driver, honestly excluded).
     comps.append(_comp("OPEC+ / refinery / geopolitics", "→", "supply stance", "", False, "no reachable free source"))
     bias, strength, net, used = _bias_from(comps)
     driver = "; ".join(f"{c['name']} {c['dir']}" for c in used[:3]) or "no reachable drivers"
-    return bias, strength, comps, f"inventories + USD -> {asset} {bias.lower()}", driver
+    extras = " + real-yield + crack" if asset.upper() in OIL_EXTRA_DRIVERS else ""
+    return bias, strength, comps, f"inventories + USD{extras} -> {asset} {bias.lower()}", driver
 
 
 def _crypto_trend(asset, asof, bundle, mkt):
