@@ -41,6 +41,11 @@ MAX_AGE = {"fred_monthly": 45, "fred_quarterly": 100, "market": 4, "funding": 1.
 MKT_TICKERS = {"us10y": "^TNX", "dxy": "DX-Y.NYB", "gold": "GC=F", "oil": "CL=F", "silver": "SI=F",
                "gasoline": "RB=F"}   # RBOB gasoline front-month -> crack / product-demand proxy for oil
 
+# Scope the EXTRA oil drivers (US real yield + gasoline crack) to EXACTLY these two board instruments.
+# Every other oil-class alias (WTIUSD/USOUSD/UKOUSD) keeps the original EIA+DXY behaviour, so this
+# change provably cannot affect any asset other than XTIUSD / XBRUSD (user directive 2026-11-13).
+OIL_EXTRA_DRIVERS = {"XTIUSD", "XBRUSD"}
+
 CRYPTO = FUND.CRYPTO
 FX_CCYS = {"USD", "EUR", "JPY", "GBP", "AUD", "NZD", "CAD", "CHF", "NGN"}
 
@@ -361,33 +366,37 @@ def _oil_trend(asset, asof, bundle, mkt):
         comps.append(_comp("DXY (inverse)", "↓" if arrow == "↑" else "↑" if arrow == "↓" else "→",
                            f"DXY {pct:+.1f}% 60d", ld, used, "" if used else f"stale {age}d",
                            vote=(-1 if arrow == "↑" else 1 if arrow == "↓" else 0) if used else 0))
-    # (3) US real yield, inverse — rising real yields tighten financial conditions and dampen oil
-    #     demand expectations -> bearish. Reuses the shared real-yield leg, inverted (same idiom as
-    #     _equity_index_trend). Carries its own available_at / used flag.
-    ry = next((c for c in us_components(asof, bundle, mkt) if c["name"] == "US real yield"), None)
-    if ry is not None:
-        inv = dict(ry)
-        inv["name"] = "US real yield (demand, inverse)"
-        inv["dir"] = "↓" if ry["dir"] == "↑" else "↑" if ry["dir"] == "↓" else "→"
-        inv["detail"] = ry["detail"] + (" -> tighter = oil-demand headwind" if ry["dir"] == "↑"
-                                        else " -> easier = oil-demand tailwind" if ry["dir"] == "↓" else "")
-        inv["vote"] = -ry.get("vote", 0)
-        comps.append(inv)
-    # (4) RBOB gasoline crack — refining margin / product demand. Rising crack = bullish for crude.
-    crack = _crack_trend(mkt)
-    if crack is not None:
-        arrow, pct, ld, age, used = crack
-        comps.append(_comp("Gasoline crack (demand)", arrow,
-                           f"RBOB crack {pct:+.1f}% 60d ({'margins up = demand' if arrow=='↑' else 'margins down' if arrow=='↓' else 'flat'})",
-                           ld, used, "" if used else f"stale {age}d",
-                           vote=(1 if arrow == "↑" else -1 if arrow == "↓" else 0) if used else 0))
-    else:
-        comps.append(_comp("Gasoline crack (demand)", "→", "RBOB/crude margin", "", False, "no reachable free source"))
+    # (3)+(4) EXTRA drivers — scoped to exactly XTIUSD / XBRUSD (OIL_EXTRA_DRIVERS). Any other oil-class
+    #     alias falls through with only EIA+DXY, i.e. byte-identical to the pre-change behaviour.
+    if asset.upper() in OIL_EXTRA_DRIVERS:
+        # (3) US real yield, inverse — rising real yields tighten financial conditions and dampen oil
+        #     demand expectations -> bearish. Reuses the shared real-yield leg, inverted (same idiom as
+        #     _equity_index_trend). Carries its own available_at / used flag.
+        ry = next((c for c in us_components(asof, bundle, mkt) if c["name"] == "US real yield"), None)
+        if ry is not None:
+            inv = dict(ry)
+            inv["name"] = "US real yield (demand, inverse)"
+            inv["dir"] = "↓" if ry["dir"] == "↑" else "↑" if ry["dir"] == "↓" else "→"
+            inv["detail"] = ry["detail"] + (" -> tighter = oil-demand headwind" if ry["dir"] == "↑"
+                                            else " -> easier = oil-demand tailwind" if ry["dir"] == "↓" else "")
+            inv["vote"] = -ry.get("vote", 0)
+            comps.append(inv)
+        # (4) RBOB gasoline crack — refining margin / product demand. Rising crack = bullish for crude.
+        crack = _crack_trend(mkt)
+        if crack is not None:
+            arrow, pct, ld, age, used = crack
+            comps.append(_comp("Gasoline crack (demand)", arrow,
+                               f"RBOB crack {pct:+.1f}% 60d ({'margins up = demand' if arrow=='↑' else 'margins down' if arrow=='↓' else 'flat'})",
+                               ld, used, "" if used else f"stale {age}d",
+                               vote=(1 if arrow == "↑" else -1 if arrow == "↓" else 0) if used else 0))
+        else:
+            comps.append(_comp("Gasoline crack (demand)", "→", "RBOB/crude margin", "", False, "no reachable free source"))
     # (5) supply policy — still no free source (the dominant oil driver, honestly excluded).
     comps.append(_comp("OPEC+ / refinery / geopolitics", "→", "supply stance", "", False, "no reachable free source"))
     bias, strength, net, used = _bias_from(comps)
     driver = "; ".join(f"{c['name']} {c['dir']}" for c in used[:3]) or "no reachable drivers"
-    return bias, strength, comps, f"inventories + USD + real-yield + crack -> {asset} {bias.lower()}", driver
+    extras = " + real-yield + crack" if asset.upper() in OIL_EXTRA_DRIVERS else ""
+    return bias, strength, comps, f"inventories + USD{extras} -> {asset} {bias.lower()}", driver
 
 
 def _crypto_trend(asset, asof, bundle, mkt):
