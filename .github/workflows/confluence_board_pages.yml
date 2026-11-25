@@ -29,7 +29,7 @@ jobs:
     timeout-minutes: 20      # 29 pairs x intervals — headroom for the larger universe
     environment:
       name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+      url: ${{ steps.deploy1.outputs.page_url || steps.deploy2.outputs.page_url || steps.deploy3.outputs.page_url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -66,6 +66,31 @@ jobs:
         with:
           path: dashboard
 
-      - name: Deploy to GitHub Pages
-        id: deploy
+      # actions/deploy-pages@v4 intermittently reads GitHub's artifact-metadata API
+      # before the just-uploaded "github-pages" artifact is visible and fails with
+      # "Found 0 artifact(s)" — a GitHub platform eventual-consistency race, not a
+      # repo issue. Retry up to 3 times with backoff so a transient miss self-heals;
+      # only a genuine/persistent outage (final attempt) fails the run.
+      - name: Deploy to GitHub Pages (attempt 1)
+        id: deploy1
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+
+      - name: Wait before retry 2
+        if: steps.deploy1.outcome == 'failure'
+        run: sleep 20
+
+      - name: Deploy to GitHub Pages (attempt 2)
+        id: deploy2
+        if: steps.deploy1.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+
+      - name: Wait before retry 3
+        if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
+        run: sleep 30
+
+      - name: Deploy to GitHub Pages (final attempt)
+        id: deploy3
+        if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
         uses: actions/deploy-pages@v4
