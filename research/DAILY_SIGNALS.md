@@ -5,23 +5,23 @@ Generated pre-dawn by the `briefing` workflow (Phase 6+). Until a validated cand
 exists, this stays empty by design.
 
 
-## Briefing 2026-11-26
+## Briefing 2026-11-28
 **No trades today.** No validated candidate exists yet (Phases 3–9 found 0 MTC-significant edges); an empty list is the honest output. The event-risk calendar below is live.
 
-### Event-risk calendar (next 14 days — 10 official FXMacroData times, rest projected)
+### Event-risk calendar (next 14 days — 0 official FXMacroData times, rest projected)
 | event | class | next (UTC) | source |
 |---|---|---|---|
+| ECB_RATE | forex_macro | 2026-11-29 00:00 ~ | projected |
+| CA_CPI | forex_macro | 2026-12-01 00:00 ~ | projected |
+| CH_CPI | forex_macro | 2026-12-01 00:00 ~ | projected |
+| UK_CPI | forex_macro | 2026-12-01 00:00 ~ | projected |
 | CrudeInventories ⚠high | oil | 2026-12-02 14:30 ~ | projected |
-| business_confidence | forex_macro | 2026-12-03 15:00 | official |
-| employment ⚠high | forex_macro | 2026-12-04 13:30 | official |
-| non_farm_payrolls ⚠high | forex_macro | 2026-12-04 13:30 | official |
-| non_farm_payrolls_change ⚠high | forex_macro | 2026-12-04 13:30 | official |
-| unemployment ⚠high | forex_macro | 2026-12-04 13:30 | official |
-| wages | forex_macro | 2026-12-04 13:30 | official |
-| consumer_confidence | forex_macro | 2026-12-07 16:00 | official |
-| trade_balance | forex_macro | 2026-12-08 13:30 | official |
-| policy_rate ⚠high | forex_macro | 2026-12-09 19:00 | official |
-| press_conference ⚠high | forex_macro | 2026-12-09 19:30 | official |
+| FedFunds ⚠high | forex_macro | 2026-12-03 18:00 ~ | projected |
+| NFP ⚠high | forex_macro | 2026-12-04 12:30 ~ | projected |
+| Unemployment | forex_macro | 2026-12-04 12:30 ~ | projected |
+| CPI ⚠high | forex_macro | 2026-12-09 12:30 ~ | projected |
+| CA_RATE | forex_macro | 2026-12-10 00:00 ~ | projected |
+| JP_RATE | forex_macro | 2026-12-10 00:00 ~ | projected |
 
 _Per-signal briefing (once candidates are live): `news: <tag>; next event risk: <event ~date>` — see brief_for_signal(). No new intraday entry within 30 min of a ⚠high event; no holding a fresh position through one without a logged reason (D-021 §3)._
 
